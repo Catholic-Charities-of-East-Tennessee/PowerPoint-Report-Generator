@@ -13,7 +13,7 @@ def test(file, cli_instance):
             reader = csv.reader(report, delimiter=',', quotechar='"')
             # loop through each row in the file (the row is a list of values)
             for row in reader:
-                # print(row)
+                print(row)
 
                 # if the row begins with text then a new chart is being made
                 if row[0] != '':

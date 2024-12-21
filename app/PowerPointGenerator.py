@@ -14,20 +14,36 @@ class PowerPointGenerator:
 
     def __init__(self, cli_instance):
         print("Starting PowerPoint Generation...")
+        self._cli = cli_instance
 
         # create presentation object
-        prs = pp.Presentation()
-
-        # TEST
-        # add a slide
-        slide_layout = prs.slide_layouts[self.TITLE]
-        slide1 = prs.slides.add_slide(slide_layout)
-        # put stuff on the slide
-        shapes = slide1.shapes
+        self.prs = pp.Presentation()
 
         # create title slide
+        slide_layout = self.prs.slide_layouts[self.TITLE]
+        slide1 = self.prs.slides.add_slide(slide_layout)
 
-        # while csv interpreter still has slides to add loop through a slide adding method
+        # put stuff on the slide
+        placeholders = slide1.placeholders
 
+        title = placeholders[0]
+        subtitle = placeholders[1]
+
+        title.text = self._cli.get_PowerPoint_Name()
+        subtitle.text = "Catholic Charities of East Tennessee"
+
+    @staticmethod
+    def create_Table_Slide(title, matrix):
+        print ("TBD")
+
+    @staticmethod
+    def create_PieChart_Slide(title, matrix):
+        print("TBD")
+
+    @staticmethod
+    def create_BarChart_slide(title, matrix):
+        print("TBD")
+
+    def save_Presentation(self):
         # save the presentation
-        prs.save("pptx_exports/" + cli_instance.get_PowerPoint_SaveName() + ".pptx")
+        self.prs.save("pptx_exports/" + self._cli.get_PowerPoint_SaveName() + ".pptx")

@@ -39,7 +39,7 @@ class CLI:
 
     @staticmethod
     def get_PowerPoint_Name():
-        user_name_choice = input("What would you like to name the powerPoint?\nEnter name: ")
+        user_name_choice = input("What would you like to title the PowerPoint?\nEnter name: ")
         return user_name_choice
 
     @staticmethod
