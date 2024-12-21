@@ -1,22 +1,33 @@
 import pptx as pp
 
 class PowerPointGenerator:
-    def __init__(self):
-        print("Starting PowerPoint Generation...")
-        # create presentation object
-        pres = pp.Presentation()
-        # create a layout object
-        title_slide_layout = pres.slides[0]
-        # create a slide object & add it to the presentation object
-        title_slide = pres.slides.add_slide(title_slide_layout)
-        # create a shape object off of the slide object
-        title = title_slide.shapes.title
-        # create another shape object off of the default placeholder list in the slide object
-        subtitle = title_slide.placeholders[1]
+    # Slide layout constants
+    TITLE = 0
+    TITLE_AND_CONTENT = 1
+    SECTION_HEADER = 2
+    TWO_CONTENT = 3 # side by side bullet textboxes
+    COMPARISON = 4 # side by side bullet textboxes with titles
+    TITLE_ONLY = 5
+    BLANK = 6
+    CONTENT_CAPTION = 7
+    PICTURE_CAPTION = 8
 
-        # set the text of both of the shape objects
-        title.text = "Title"
-        subtitle.text = "Subtitle"
+    def __init__(self, cli_instance):
+        print("Starting PowerPoint Generation...")
+
+        # create presentation object
+        prs = pp.Presentation()
+
+        # TEST
+        # add a slide
+        slide_layout = prs.slide_layouts[self.TITLE]
+        slide1 = prs.slides.add_slide(slide_layout)
+        # put stuff on the slide
+        shapes = slide1.shapes
+
+        # create title slide
+
+        # while csv interpreter still has slides to add loop through a slide adding method
 
         # save the presentation
-        pres.save('pptx_exports/test.pptx')
+        prs.save("pptx_exports/" + cli_instance.get_PowerPoint_SaveName() + ".pptx")
