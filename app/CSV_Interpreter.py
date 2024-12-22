@@ -8,21 +8,32 @@ def test(file, cli_instance):
         with open("reports/" + file + ".csv", newline='') as report:
 
             # Create instance of the PowerPointGenerator
-            pptx.PowerPointGenerator(cli_instance)
+            pptx_generator = pptx.PowerPointGenerator(cli_instance)
+            rows = []
+            title = None
 
             reader = csv.reader(report, delimiter=',', quotechar='"')
             # loop through each row in the file (the row is a list of values)
             for row in reader:
-                print(row)
-
                 # if the row begins with text then a new chart is being made
                 if row[0] != '':
-                    # the first
-                    title = row[0]
+                    # if this isn't the first time, then we need to create a slide with the date
+                    if title is not None:
+                        # Clean up data before sending off to pptx Generator
+                        # remove first empty value
+                        rows = [row[1:] for row in rows]
 
+                        # make all rows same length
+
+                        # create slide off data
+                        pptx_generator.create_Table_Slide(title, rows)
+                        # clear rows
+                        rows = []
+                    # set slide/table title value
+                    title = row[0]
                 # we are in the middle of a chart
-                #else:
-                    #print("TBD")
+                else:
+                    rows.append(row)
     except FileNotFoundError:
         print("File not found...\n")
         cli_instance.valid = False

@@ -34,7 +34,9 @@ class PowerPointGenerator:
 
     @staticmethod
     def create_Table_Slide(title, matrix):
-        print ("TBD")
+        print ("\n" + title)
+        for row in matrix:
+            print(row)
 
     @staticmethod
     def create_PieChart_Slide(title, matrix):
