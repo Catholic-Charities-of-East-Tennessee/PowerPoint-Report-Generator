@@ -1,4 +1,5 @@
 import pptx as pp
+from pptx.util import Inches
 
 class PowerPointGenerator:
     # Slide layout constants
@@ -21,10 +22,10 @@ class PowerPointGenerator:
 
         # create title slide
         slide_layout = self.prs.slide_layouts[self.TITLE]
-        slide1 = self.prs.slides.add_slide(slide_layout)
+        slide = self.prs.slides.add_slide(slide_layout)
 
         # put stuff on the slide
-        placeholders = slide1.placeholders
+        placeholders = slide.placeholders
 
         title = placeholders[0]
         subtitle = placeholders[1]
@@ -32,11 +33,29 @@ class PowerPointGenerator:
         title.text = self._cli.get_PowerPoint_Name()
         subtitle.text = "Catholic Charities of East Tennessee"
 
-    @staticmethod
-    def create_Table_Slide(title, matrix, columns, rows):
+    def create_Table_Slide(self, title, matrix, columns, rows):
         print ("\n" + "Columns: " + str(columns) + " | " + "Rows: " + str(rows) + "\n" + "Slide title: " + title)
         for row in matrix:
             print(row)
+
+        slide_layout = self.prs.slide_layouts[self.TITLE_ONLY]
+        slide = self.prs.slides.add_slide(slide_layout)
+        shapes = slide.shapes
+        shapes.title.text = title
+
+        left = top = Inches(2.0)
+        width = Inches(6.0)
+        height = Inches(0.8)
+
+        table = shapes.add_table(rows, columns, left, top, width, height).table
+
+        # Set column widths
+        #table.columns[0].width = Inches(2.0)
+
+        # fill in cells
+        for i in range(len(matrix)): # loop through columns
+            for j in range(len(matrix[i])): # loop through rows
+                table.cell(i, j).text = matrix[i][j]
 
     @staticmethod
     def create_PieChart_Slide(title, matrix):
