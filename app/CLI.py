@@ -13,7 +13,7 @@ class CLI:
     def valid(self, state):
         self._valid = state
 
-    def choose_report(self, interface_instance):
+    def choose_report(self):
         # will loop again if hit our default case and don't have a good input
         while not self._valid:
             # take in user input
@@ -26,7 +26,7 @@ class CLI:
                 # test case
                 case 1:
                     self._valid = True
-                    Interpreter.test(report_name, interface_instance)
+                    Interpreter.test(report_name, self)
                 # TBD case
                 case 2:
                     self._valid = True
@@ -39,7 +39,7 @@ class CLI:
 
     @staticmethod
     def get_PowerPoint_Name():
-        user_name_choice = input("What would you like to title the PowerPoint?\nEnter name: ")
+        user_name_choice = input("What would you like the title slide of the PowerPoint to say?\nEnter name: ")
         return user_name_choice
 
     @staticmethod

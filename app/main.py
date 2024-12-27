@@ -5,4 +5,4 @@ if __name__ == "__main__":
     # create an instance of the cli
     interface = CLI.CLI()
     # start the choose report sequence
-    interface.choose_report(interface)
+    interface.choose_report()
