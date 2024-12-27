@@ -33,8 +33,8 @@ class PowerPointGenerator:
         subtitle.text = "Catholic Charities of East Tennessee"
 
     @staticmethod
-    def create_Table_Slide(title, matrix):
-        print ("\n" + title)
+    def create_Table_Slide(title, matrix, columns, rows):
+        print ("\n" + "Columns: " + str(columns) + " | " + "Rows: " + str(rows) + "\n" + "Slide title: " + title)
         for row in matrix:
             print(row)
 
