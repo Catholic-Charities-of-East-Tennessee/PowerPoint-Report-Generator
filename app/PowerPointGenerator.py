@@ -32,20 +32,19 @@ class PowerPointGenerator:
         title.text = self._cli.get_PowerPoint_Name()
         subtitle.text = "Catholic Charities of East Tennessee"
 
-    def create_Table_Slide(self, title, matrix):
+    @staticmethod
+    def create_Table_Slide(title, matrix):
         print ("\n" + title)
         for row in matrix:
             print(row)
 
-        self.save_Presentation()
-
-    def create_PieChart_Slide(self, title, matrix):
+    @staticmethod
+    def create_PieChart_Slide(title, matrix):
         print("TBD")
-        self.save_Presentation()
 
-    def create_BarChart_slide(self, title, matrix):
+    @staticmethod
+    def create_BarChart_slide(title, matrix):
         print("TBD")
-        self.save_Presentation()
 
     def save_Presentation(self):
         # save the presentation

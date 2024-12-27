@@ -9,7 +9,8 @@ def test(file, cli_instance):
 
             # Create instance of the PowerPointGenerator
             pptx_generator = pptx.PowerPointGenerator(cli_instance)
-            rows = []
+            # holds all the rows for a slide
+            slide_rows = []
             title = None
 
             reader = csv.reader(report, delimiter=',', quotechar='"')
@@ -21,19 +22,22 @@ def test(file, cli_instance):
                     if title is not None:
                         # Clean up data before sending off to pptx Generator
                         # remove first empty value
-                        rows = [row[1:] for row in rows]
+                        slide_rows = [row[1:] for row in slide_rows]
 
                         # make all rows same length
 
+
                         # create slide off data
-                        pptx_generator.create_Table_Slide(title, rows)
+                        pptx_generator.create_Table_Slide(title, slide_rows)
                         # clear rows
-                        rows = []
+                        slide_rows = []
                     # set slide/table title value
                     title = row[0]
                 # we are in the middle of a chart
                 else:
-                    rows.append(row)
+                    slide_rows.append(row)
+            # save presentation
+            pptx_generator.save_Presentation()
     except FileNotFoundError:
         print("File not found...\n")
         cli_instance.valid = False
