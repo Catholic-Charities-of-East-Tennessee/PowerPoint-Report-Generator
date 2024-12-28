@@ -35,9 +35,9 @@ class PowerPointGenerator:
         subtitle.text = "Catholic Charities of East Tennessee"
 
     def create_Table_Slide(self, title, matrix, columns, rows):
-        print ("\n" + "Columns: " + str(columns) + " | " + "Rows: " + str(rows) + "\n" + "Slide title: " + title)
-        for row in matrix:
-            print(row)
+        #print ("\nSlide title: " + title + "\n" + "Columns: " + str(columns) + " | " + "Rows: " + str(rows))
+        #for row in matrix:
+            #print(row)
         if rows > 0 and columns > 0:
             slide_layout = self.prs.slide_layouts[self.TITLE_ONLY]
             slide = self.prs.slides.add_slide(slide_layout)
@@ -72,13 +72,6 @@ class PowerPointGenerator:
             for row in range(len(matrix)):
                 if matrix[row][0] != '' and all(cell == '' for cell in matrix[row][1:]):
                     table.cell(row, 0).merge(table.cell(row, columns - 1))
-                    # center text in merged cells
-                    #for paragraph in table.cell(row, 0).text_frame.paragraphs:
-                        #paragraph.alignment = PP_ALIGN.CENTER  # Horizontal alignment
-                    #table.cell(row, 0).vertical_alignment = "middle"  # Vertical alignment
-
-
-
         else:
             print("\nError creating slide " + title + ", rows or columns are < 0")
 
