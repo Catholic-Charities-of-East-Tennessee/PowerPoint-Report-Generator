@@ -16,13 +16,17 @@ def test(file, cli_instance):
             reader = csv.reader(report, delimiter=',', quotechar='"')
             # loop through each row in the file (the row is a list of values)
             for row in reader:
-                # if the row begins with text then a new chart is being made
-                if row[0] != '':
+                # if the row begins with text & every value after is empty, then a new chart is being made
+                if row[0] != '' and all(element == '' for element in row[1:]):
                     # if this isn't the first time, then we need to create a slide with the date
                     if title is not None:
                         # Clean up data before sending off to pptx Generator
-                        # remove first empty value
-                        slide_rows = [row[1:] for row in slide_rows]
+
+                        # remove first empty value in each row (remove first empty column), if there is an element in the first column, move it to the next column
+                        slide_rows = [
+                            [row[0]] + row[2:] if row[0] != '' else row[1:]
+                            for row in slide_rows
+                        ]
 
                         # make all rows same length
                         # Find chart length
@@ -38,8 +42,18 @@ def test(file, cli_instance):
                         # set new lines to the proper length
                         slide_rows = [s_row[:-(len(sRow) - chart_length)] for s_row in slide_rows]
 
+                        # remove any counts
+                        for i in range(len(slide_rows)):  # loop through columns
+                            for j in range(len(slide_rows[i])):  # loop through rows
+                                if slide_rows[i][j] == 'Count':
+                                    slide_rows[i][j] = ''
+
+                        # remove any empty rows
+                        slide_rows = [sublist for sublist in slide_rows if not all(element == '' for element in sublist)]
+
                         # create slide off data
                         pptx_generator.create_Table_Slide(title, slide_rows, chart_length, len(slide_rows))
+
                         # clear rows
                         slide_rows = []
                     # set slide/table title value

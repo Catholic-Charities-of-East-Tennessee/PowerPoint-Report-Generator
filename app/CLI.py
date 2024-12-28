@@ -18,8 +18,8 @@ class CLI:
         while not self._valid:
             # take in user input
             user_report_choice = input(
-                "Which report would you like a powerpoint for?\n1. test\n2. TBD\nEnter a choice: ")
-            report_name = input("What is the name of the csv file? (ex. \"stats_report\") \nEnter name: ")
+                "\nWhich report would you like a powerpoint for?\n1. test\n2. TBD\nEnter a choice: ")
+            report_name = input("\nWhat is the name of the csv file? (ex. \"stats_report\") \nEnter name: ")
 
             # match case that executes the correct interpreter sequence for the desired report
             match int(user_report_choice):
@@ -39,10 +39,10 @@ class CLI:
 
     @staticmethod
     def get_PowerPoint_Name():
-        user_name_choice = input("What would you like the title slide of the PowerPoint to say?\nEnter name: ")
+        user_name_choice = input("\nWhat would you like the title slide of the PowerPoint to say?\nEnter name: ")
         return user_name_choice
 
     @staticmethod
     def get_PowerPoint_SaveName():
-        user_name_choice = input("What would you like to name the pptx file? (ex. \"stats_report\")\nEnter name: ")
+        user_name_choice = input("\nWhat would you like to name the pptx file? (ex. \"stats_report\")\nEnter name: ")
         return user_name_choice

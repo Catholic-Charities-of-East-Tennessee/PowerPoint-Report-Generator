@@ -1,5 +1,6 @@
 import pptx as pp
 from pptx.util import Inches
+from pptx.enum.text import PP_ALIGN
 
 class PowerPointGenerator:
     # Slide layout constants
@@ -37,25 +38,49 @@ class PowerPointGenerator:
         print ("\n" + "Columns: " + str(columns) + " | " + "Rows: " + str(rows) + "\n" + "Slide title: " + title)
         for row in matrix:
             print(row)
+        if rows > 0 and columns > 0:
+            slide_layout = self.prs.slide_layouts[self.TITLE_ONLY]
+            slide = self.prs.slides.add_slide(slide_layout)
+            shapes = slide.shapes
+            shapes.title.text = title
 
-        slide_layout = self.prs.slide_layouts[self.TITLE_ONLY]
-        slide = self.prs.slides.add_slide(slide_layout)
-        shapes = slide.shapes
-        shapes.title.text = title
+            left = Inches(0.0)
+            top = Inches(2.0)
+            width = Inches(10.0)
+            height = Inches(0.8)
 
-        left = top = Inches(2.0)
-        width = Inches(6.0)
-        height = Inches(0.8)
+            table = shapes.add_table(rows, columns, left, top, width, height).table
 
-        table = shapes.add_table(rows, columns, left, top, width, height).table
+            # Set column widths
+            #table.columns[0].width = Inches(2.0)
 
-        # Set column widths
-        #table.columns[0].width = Inches(2.0)
+            # fill in cells with data
+            for row in range(len(matrix)): # loop through rows
+                for col in range(len(matrix[row])): # loop through columns
+                    if matrix[row][col] == 'Count':
+                        matrix[row][col] = ''
+                    table.cell(row, col).text = matrix[row][col]
 
-        # fill in cells
-        for i in range(len(matrix)): # loop through columns
-            for j in range(len(matrix[i])): # loop through rows
-                table.cell(i, j).text = matrix[i][j]
+            # merge the first row's cells
+            table.cell(0, 0).merge(table.cell(0, columns - 1))
+            # center text in merged cell
+            for paragraph in table.cell(0, 0).text_frame.paragraphs:
+                paragraph.alignment = PP_ALIGN.CENTER  # Horizontal alignment
+            table.cell(0, 0).vertical_alignment = "middle"  # Vertical alignment
+
+            # merge any row's cells where the first element isn't '', but every element after is
+            for row in range(len(matrix)):
+                if matrix[row][0] != '' and all(cell == '' for cell in matrix[row][1:]):
+                    table.cell(row, 0).merge(table.cell(row, columns - 1))
+                    # center text in merged cells
+                    #for paragraph in table.cell(row, 0).text_frame.paragraphs:
+                        #paragraph.alignment = PP_ALIGN.CENTER  # Horizontal alignment
+                    #table.cell(row, 0).vertical_alignment = "middle"  # Vertical alignment
+
+
+
+        else:
+            print("\nError creating slide " + title + ", rows or columns are < 0")
 
     @staticmethod
     def create_PieChart_Slide(title, matrix):
