@@ -47,8 +47,10 @@ def test(file, cli_instance):
                         # account for list starting at 0
                         chart_length = chart_length + 1
                         # set new lines to the proper length
-                        slide_rows = [s_row[:-(len(sRow) - chart_length)] for s_row in slide_rows]
+                        if len(slide_rows[1]) - chart_length != 0: # this conditional is because the slide with the most columns will be deleted using this algorithm
+                            slide_rows = [s_row[:-(len(sRow) - chart_length)] for s_row in slide_rows]
                         print("\nmake all rows same length")
+                        print("Chart length: " + str(chart_length))  # check if chart length worked
                         for r in slide_rows:
                             print(r)
 
