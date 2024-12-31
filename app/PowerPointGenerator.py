@@ -7,8 +7,10 @@ Anno:       Anno Domini 2024
 """
 
 import pptx as pp
+from pptx.chart.data import CategoryChartData
 from pptx.util import Inches
 from pptx.enum.text import PP_ALIGN
+from pptx.enum.chart import XL_CHART_TYPE, XL_LEGEND_POSITION, XL_LABEL_POSITION
 import CLI as UI
 
 class PowerPointGenerator:
@@ -43,20 +45,22 @@ class PowerPointGenerator:
         subtitle.text = "Catholic Charities of East Tennessee"
 
     def create_Table_Slide(self, title, matrix, columns, rows):
-        #print ("\nSlide title: " + title + "\n" + "Columns: " + str(columns) + " | " + "Rows: " + str(rows))
-        #for row in matrix:
-            #print(row)
+        # check if the numbers given are valid
         if rows > 0 and columns > 0:
+            # create a slide
             slide_layout = self.prs.slide_layouts[self.TITLE_ONLY]
             slide = self.prs.slides.add_slide(slide_layout)
+            # give the slide a title
             shapes = slide.shapes
             shapes.title.text = title
 
+            # create variables that will be used to position the table
             left = Inches(0.0)
             top = Inches(2.0)
             width = Inches(10.0)
             height = Inches(0.8)
 
+            # create the table
             table = shapes.add_table(rows, columns, left, top, width, height).table
 
             # Set column widths
@@ -83,13 +87,56 @@ class PowerPointGenerator:
         else:
             print("\nError creating slide " + title + ", rows or columns are < 0")
 
-    @staticmethod
-    def create_PieChart_Slide(title, matrix):
-        print("TBD")
+    def create_PieChart_Slide(self, title, matrix):
+        # Create a slide
+        slide_layout = self.prs.slide_layouts[self.TITLE_ONLY]
+        slide = self.prs.slides.add_slide(slide_layout)
+        # give the slide a title
+        shapes = slide.shapes
+        shapes.title.text = title
 
-    @staticmethod
-    def create_BarChart_slide(title, matrix):
-        print("TBD")
+        # create a chart
+        chart_data = CategoryChartData()
+        chart_data.categories = []
+        chart_data.add_series('first_series_of_data', (0.25, 0.25, 0.25, 0.25))
+
+        # add chart to slide
+        x, y, cx, cy = Inches(2), Inches(2), Inches(6), Inches(4.5)
+        chart = slide.shapes.add_chart(
+            XL_CHART_TYPE.PIE, x, y , cx, cy, chart_data
+        ).chart
+
+        # set chart legend
+        chart.has_legend = True
+        chart.legend.position = XL_LEGEND_POSITION.BOTTOM
+        chart.legend.include_ing_layout = False
+
+        # set chart data labels
+        chart.plots[0].has_data_labels = True
+        data_labels = chart.plots[0].data_labels
+        data_labels.number_format = '0%'
+        data_labels.position = XL_LABEL_POSITION.OUTSIDE_END
+
+    def create_BarChart_slide(self, title, matrix):
+        # create a slide
+        slide_layout = self.prs.slide_layouts[self.TITLE_ONLY]
+        slide = self.prs.slides.add_slide(slide_layout)
+        # give the slide a title
+        shapes = slide.shapes
+        shapes.title.text = title
+
+        # create a chart
+        chart_data = CategoryChartData()
+        # fill in x axis (categories)
+        chart_data.categories = []
+        # fill in with data (you can add multiple series)
+        chart_data.add_series('first_series_of_data', (5, 10, 15))
+
+        # add chart to slide
+        x, y, cx, cy = Inches(2), Inches(2), Inches(6), Inches(4.5)
+        slide.shapes.add_chart(
+            XL_CHART_TYPE.COLUMN_CLUSTERED, x, y , cx, cy, chart_data
+        )
 
     def save_Presentation(self):
         # save the presentation
