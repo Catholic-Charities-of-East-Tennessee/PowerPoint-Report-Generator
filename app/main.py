@@ -1,8 +1,13 @@
+"""
+File:       main.py
+Purpose:    This is the main file that begins the execution of the rest of the program
+Author:     Joey Borrelli, Software & Training Intern For Catholic Charities of East Tennessee
+Anno:       Anno Domini 2024
+"""
+
 import CLI
 
 if __name__ == "__main__":
     print("Welcome to PowerPoint Generator!")
-    # create an instance of the cli
-    interface = CLI.CLI()
     # start the choose report sequence
-    interface.choose_report()
+    CLI.choose_report()

@@ -1,48 +1,22 @@
+"""
+File:       CLI.py
+Purpose:    This file CLI.py (Command Line Interface) contains all the methods responsible for I/O (Input Output) to the
+            Command line.
+Author:     Joey Borrelli, Software & Training Intern For Catholic Charities of East Tennessee
+Anno:       Anno Domini 2024
+"""
+
 import CSV_Interpreter as Interpreter
 
-class CLI:
-    def __init__(self):
-        # variable that determines if our input was valid
-        self._valid = False
+def choose_report():
+    # take in user input
+    report_name = input("\nWhat is the name of the report's csv file located in the reports directory? (ex. \"stats_report\") \nEnter file name: ")
+    Interpreter.interpret(report_name)
 
-    @property
-    def valid(self):
-        return self._valid
+def get_PowerPoint_Name():
+    user_name_choice = input("\nWhat would you like the title slide of the PowerPoint to say?\nEnter name: ")
+    return user_name_choice
 
-    @valid.setter
-    def valid(self, state):
-        self._valid = state
-
-    def choose_report(self):
-        # will loop again if hit our default case and don't have a good input
-        while not self._valid:
-            # take in user input
-            user_report_choice = input(
-                "\nWhich report would you like a powerpoint for?\n1. test\n2. TBD\nEnter a choice: ")
-            report_name = input("\nWhat is the name of the csv file? (ex. \"stats_report\") \nEnter name: ")
-
-            # match case that executes the correct interpreter sequence for the desired report
-            match int(user_report_choice):
-                # test case
-                case 1:
-                    self._valid = True
-                    Interpreter.test(report_name, self)
-                # TBD case
-                case 2:
-                    self._valid = True
-                # default case that signifies an invalid choice
-                case _:
-                    print("Not a valid choice")
-                    self._valid = False
-            # end match case
-        # end while
-
-    @staticmethod
-    def get_PowerPoint_Name():
-        user_name_choice = input("\nWhat would you like the title slide of the PowerPoint to say?\nEnter name: ")
-        return user_name_choice
-
-    @staticmethod
-    def get_PowerPoint_SaveName():
-        user_name_choice = input("\nWhat would you like to name the pptx file? (ex. \"stats_report\")\nEnter name: ")
-        return user_name_choice
+def get_PowerPoint_SaveName():
+    user_name_choice = input("\nWhat would you like to name the pptx file? (ex. \"stats_report\")\nEnter name: ")
+    return user_name_choice

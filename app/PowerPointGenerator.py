@@ -1,6 +1,15 @@
+"""
+File:       PowerPointGenerator.py
+Purpose:    This file PowerPointGenerator.py contains the PowerPointGenerator class, which is responsible for the
+            creation of the PowerPoint (slides, charts, graphs).
+Author:     Joey Borrelli, Software & Training Intern For Catholic Charities of East Tennessee
+Anno:       Anno Domini 2024
+"""
+
 import pptx as pp
 from pptx.util import Inches
 from pptx.enum.text import PP_ALIGN
+import CLI as UI
 
 class PowerPointGenerator:
     # Slide layout constants
@@ -14,9 +23,8 @@ class PowerPointGenerator:
     CONTENT_CAPTION = 7
     PICTURE_CAPTION = 8
 
-    def __init__(self, cli_instance):
+    def __init__(self):
         print("Starting PowerPoint Generation...")
-        self._cli = cli_instance
 
         # create presentation object
         self.prs = pp.Presentation()
@@ -31,7 +39,7 @@ class PowerPointGenerator:
         title = placeholders[0]
         subtitle = placeholders[1]
 
-        title.text = self._cli.get_PowerPoint_Name()
+        title.text = UI.get_PowerPoint_Name()
         subtitle.text = "Catholic Charities of East Tennessee"
 
     def create_Table_Slide(self, title, matrix, columns, rows):
@@ -85,4 +93,4 @@ class PowerPointGenerator:
 
     def save_Presentation(self):
         # save the presentation
-        self.prs.save("pptx_exports/" + self._cli.get_PowerPoint_SaveName() + ".pptx")
+        self.prs.save("pptx_exports/" + UI.get_PowerPoint_SaveName() + ".pptx")

@@ -1,13 +1,23 @@
+"""
+File:       CSV_Interpreter.py
+Purpose:    This file CSV_Interpreter.py is the file with all the methods responsible for taking in the csv data &
+            formatting it before sending it off to the PowerPoint Generator. The data for each chart is held between the
+            slide_rows & title variables.
+Author:     Joey Borrelli, Software & Training Intern For Catholic Charities of East Tennessee
+Anno:       Anno Domini 2024
+"""
+
 import csv
 import PowerPointGenerator as pptx
+import CLI
 
-def test(file, cli_instance):
+def interpret(file):
     print("Starting interpreter...")
     try:
         # open the report
         with open("reports/" + file + ".csv", newline='') as report:
             # Create instance of the PowerPointGenerator
-            pptx_generator = pptx.PowerPointGenerator(cli_instance)
+            pptx_generator = pptx.PowerPointGenerator()
 
             slide_rows = [] # holds all the rows for a slide
             title = None # holds the title, set to None to identify the first loop
@@ -39,18 +49,11 @@ def test(file, cli_instance):
             pptx_generator.save_Presentation()
     except FileNotFoundError:
         print("File not found...\n")
-        cli_instance.valid = False
+        CLI.choose_report()
     except PermissionError:
         print("Interpreter failed![PermissionError]...\nPlease contact Joey Borrelli (jborrelli@ccetn.org) with your csv file and terminal output")
     except IndexError:
         print("Interpreter failed![IndexError]...\nPlease contact Joey Borrelli (jborrelli@ccetn.org) with your csv file and terminal output")
-
-
-def stats_report(file, cli_instance):
-    print("Starting interpreter...")
-
-def stats_report_with_hope_kitchen(file, cli_instance):
-    print("Starting interpreter...")
 
 def create_slide(chart, title, pptx_generator):
     # Clean up data before sending off to pptx Generator
