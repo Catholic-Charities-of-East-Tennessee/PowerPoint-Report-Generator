@@ -12,7 +12,6 @@ import PowerPointGenerator as pptx
 import CLI
 
 def interpret(file):
-    print("Starting interpreter...")
     try:
         # open the report
         with open("reports/" + file + ".csv", newline='') as report:
@@ -48,7 +47,7 @@ def interpret(file):
             # save presentation
             pptx_generator.save_Presentation()
     except FileNotFoundError:
-        print("File not found...\n")
+        print("File not found...")
         CLI.choose_report()
     except PermissionError:
         print("Interpreter failed![PermissionError]...\nPlease contact Joey Borrelli (jborrelli@ccetn.org) with your csv file and terminal output")
@@ -88,4 +87,11 @@ def create_slide(chart, title, pptx_generator):
     chart = [sublist for sublist in chart if not all(element == '' for element in sublist)]
 
     # create slide off data
-    pptx_generator.create_Table_Slide(title, chart, chart_length, len(chart))
+    type_of_slide = CLI.get_slide_type(title)
+    match type_of_slide:
+        case 1:
+            pptx_generator.create_Table_Slide(title, chart, chart_length, len(chart))
+        case 2:
+            pptx_generator.create_BarChart_slide(title, chart)
+        case 3:
+            pptx_generator.create_PieChart_Slide(title, chart)

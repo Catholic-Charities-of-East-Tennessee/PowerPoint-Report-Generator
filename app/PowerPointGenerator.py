@@ -11,6 +11,7 @@ from pptx.chart.data import CategoryChartData
 from pptx.util import Inches
 from pptx.enum.text import PP_ALIGN
 from pptx.enum.chart import XL_CHART_TYPE, XL_LEGEND_POSITION, XL_LABEL_POSITION
+from pptx.util import Pt
 import CLI as UI
 
 class PowerPointGenerator:
@@ -26,8 +27,6 @@ class PowerPointGenerator:
     PICTURE_CAPTION = 8
 
     def __init__(self):
-        print("Starting PowerPoint Generation...")
-
         # create presentation object
         self.prs = pp.Presentation()
 
@@ -63,15 +62,45 @@ class PowerPointGenerator:
             # create the table
             table = shapes.add_table(rows, columns, left, top, width, height).table
 
-            # Set column widths
-            #table.columns[0].width = Inches(2.0)
-
             # fill in cells with data
             for row in range(len(matrix)): # loop through rows
                 for col in range(len(matrix[row])): # loop through columns
                     if matrix[row][col] == 'Count':
                         matrix[row][col] = ''
                     table.cell(row, col).text = matrix[row][col]
+
+            # Size the table according to the number of rows, columns, and the longest word
+            # Default font size
+            font_size = Pt(18)
+            # find the longest word
+            longest_word_length = 0
+            for row in matrix:
+                for cell in row:
+                    words = cell.split()
+                    for word in words:
+                        longest_word_length = max(longest_word_length, len(word))
+            # set font based on the longest word
+            if longest_word_length > 20:
+                font_size = Pt(8)
+            elif longest_word_length > 15:
+                font_size = Pt(10)
+            elif longest_word_length > 10:
+                font_size = Pt(12)
+            # Adjust font size based on number of rows
+            if rows > 19:
+                font_size = Pt(max(font_size.pt - 2.25, 6))
+            elif rows > 15:
+                font_size = Pt(max(font_size.pt - 1, 6))
+            # Adjust font size based on number of columns
+            if columns > 10:
+                font_size = Pt(max(font_size.pt - 2, 5))  # Reduce font for many columns, not less than 6pt
+            elif columns > 8:
+                font_size = Pt(max(font_size.pt - 2, 6))  # Reduce font for many columns, not less than 6pt
+            # Apply the calculated font size to all cells in the table
+            for row in table.rows:
+                for cell in row.cells:
+                    for paragraph in cell.text_frame.paragraphs:
+                        paragraph.font.size = font_size
 
             # merge the first row's cells
             table.cell(0, 0).merge(table.cell(0, columns - 1))
