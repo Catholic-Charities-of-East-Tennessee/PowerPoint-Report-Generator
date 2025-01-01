@@ -12,7 +12,7 @@ from pptx.util import Inches
 from pptx.enum.text import PP_ALIGN
 from pptx.enum.chart import XL_CHART_TYPE, XL_LEGEND_POSITION, XL_LABEL_POSITION
 from pptx.util import Pt
-import CLI as UI
+import GUI
 
 class PowerPointGenerator:
     # Slide layout constants
@@ -40,7 +40,7 @@ class PowerPointGenerator:
         title = placeholders[0]
         subtitle = placeholders[1]
 
-        title.text = UI.get_PowerPoint_Name()
+        title.text = GUI.get_PowerPoint_Name()
         subtitle.text = "Catholic Charities of East Tennessee"
 
     def create_Table_Slide(self, title, matrix, columns, rows):
@@ -169,4 +169,4 @@ class PowerPointGenerator:
 
     def save_Presentation(self):
         # save the presentation
-        self.prs.save("pptx_exports/" + UI.get_PowerPoint_SaveName() + ".pptx")
+        self.prs.save("pptx_exports/" + GUI.get_PowerPoint_SaveName() + ".pptx")

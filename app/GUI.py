@@ -1,13 +1,21 @@
 """
-File:       CLI.py
-Purpose:    This file CLI.py (Command Line Interface) contains all the methods responsible for I/O (Input Output) to the
-            Command line.
+File:       GUI.py
+Purpose:    This file GUI.py (Graphical User Interface) contains all the methods responsible for I/O (Input Output) and
+            the display of content for the user
 Author:     Joey Borrelli, Software & Training Intern For Catholic Charities of East Tennessee
 Anno:       Anno Domini 2024
 """
 
+import tkinter as tk
 import CSV_Interpreter as Interpreter
 
+def start_gui():
+    # Create and run window
+    root = tk.Tk()
+    root.geometry('1300x800')
+    root.title('PPTX Generator')
+    root.mainloop()
+    
 def choose_report():
     # take in user input
     report_name = input("\nWhat is the name of the report's csv file located in the reports directory? (ex. \"stats_report\") \nEnter file name: ").strip()

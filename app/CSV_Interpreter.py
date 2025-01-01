@@ -9,7 +9,7 @@ Anno:       Anno Domini 2024
 
 import csv
 import PowerPointGenerator as pptx
-import CLI
+import GUI
 
 def interpret(file):
     try:
@@ -48,7 +48,7 @@ def interpret(file):
             pptx_generator.save_Presentation()
     except FileNotFoundError:
         print("File not found...")
-        CLI.choose_report()
+        GUI.choose_report()
     except PermissionError:
         print("Interpreter failed![PermissionError]...\nPlease contact Joey Borrelli (jborrelli@ccetn.org) with your csv file and terminal output")
     except IndexError:
@@ -87,7 +87,7 @@ def create_slide(chart, title, pptx_generator):
     chart = [sublist for sublist in chart if not all(element == '' for element in sublist)]
 
     # create slide off data
-    type_of_slide = CLI.get_slide_type(title)
+    type_of_slide = GUI.get_slide_type(title)
     match type_of_slide:
         case 1:
             pptx_generator.create_Table_Slide(title, chart, chart_length, len(chart))
