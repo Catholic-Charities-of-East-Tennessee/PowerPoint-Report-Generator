@@ -69,6 +69,8 @@ class PowerPointGenerator:
                         matrix[row][col] = ''
                     table.cell(row, col).text = matrix[row][col]
 
+
+            # TODO: CHANGE THIS
             # Size the table according to the number of rows, columns, and the longest word
             # Default font size
             font_size = Pt(18)
