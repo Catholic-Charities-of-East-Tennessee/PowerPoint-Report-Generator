@@ -37,7 +37,7 @@ def get_slide_type(title):
             user_choice = 3
 
         try:
-            if int(user_choice) == 1 or user_choice == 2 or user_choice == 3:
+            if int(user_choice) == 1 or int(user_choice) == 2 or int(user_choice) == 3:
                 return int(user_choice)
             else:
                 print("Invalid choice! Please enter a valid choice...")

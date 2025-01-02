@@ -70,7 +70,7 @@ class PowerPointGenerator:
                     table.cell(row, col).text = matrix[row][col]
 
 
-            # TODO: CHANGE THIS
+            # TODO: Optimize this
             # Size the table according to the number of rows, columns, and the longest word
             # Default font size
             font_size = Pt(18)
@@ -128,8 +128,10 @@ class PowerPointGenerator:
 
         # create a chart
         chart_data = CategoryChartData()
-        chart_data.categories = []
-        chart_data.add_series('first_series_of_data', (0.25, 0.25, 0.25, 0.25))
+
+        # input data (may need to be updated later, this has only been tested on one data set
+        chart_data.categories = matrix[1][1:]
+        chart_data.add_series('', matrix[3][1:])
 
         # add chart to slide
         x, y, cx, cy = Inches(2), Inches(2), Inches(6), Inches(4.5)
@@ -139,7 +141,7 @@ class PowerPointGenerator:
 
         # set chart legend
         chart.has_legend = True
-        chart.legend.position = XL_LEGEND_POSITION.BOTTOM
+        chart.legend.position = XL_LEGEND_POSITION.LEFT
         chart.legend.include_ing_layout = False
 
         # set chart data labels
