@@ -6,8 +6,10 @@ Anno:       Anno Domini 2024
 """
 
 import CLI
+import data_puller
 
 if __name__ == "__main__":
     print("Welcome to PowerPoint Generator!")
     # start the choose report sequence
-    CLI.choose_report()
+    #CLI.choose_report()
+    data_puller.pull_data()
