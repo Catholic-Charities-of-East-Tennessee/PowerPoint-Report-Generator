@@ -6,13 +6,13 @@ Author:     Joey Borrelli, Software & Training Intern For Catholic Charities of 
 Anno:       Anno Domini 2024
 """
 
-import pptx as pp
+from pptx import Presentation
 from pptx.chart.data import CategoryChartData
 from pptx.util import Inches
 from pptx.enum.text import PP_ALIGN
 from pptx.enum.chart import XL_CHART_TYPE, XL_LEGEND_POSITION, XL_LABEL_POSITION
 from pptx.util import Pt
-import CLI as UI
+import CLI
 
 class PowerPointGenerator:
     # Slide layout constants
@@ -26,23 +26,22 @@ class PowerPointGenerator:
     CONTENT_CAPTION = 7
     PICTURE_CAPTION = 8
 
+    # Constructor creates a presentation and title slide
     def __init__(self):
         # create presentation object
-        self.prs = pp.Presentation()
+        self.prs = Presentation()
 
         # create title slide
         slide_layout = self.prs.slide_layouts[self.TITLE]
         slide = self.prs.slides.add_slide(slide_layout)
 
         # put stuff on the slide
-        placeholders = slide.placeholders
+        # title
+        slide.placeholders[0].text = CLI.get_PowerPoint_Name()
+        # subtitle
+        slide.placeholders[1].text = "Catholic Charities of East Tennessee"
 
-        title = placeholders[0]
-        subtitle = placeholders[1]
-
-        title.text = UI.get_PowerPoint_Name()
-        subtitle.text = "Catholic Charities of East Tennessee"
-
+    # Function creates and adds a slide with a table to the presentation
     def create_Table_Slide(self, title, matrix, columns, rows):
         # check if the numbers given are valid
         if rows > 0 and columns > 0:
@@ -118,6 +117,7 @@ class PowerPointGenerator:
         else:
             print("\nError creating slide " + title + ", rows or columns are < 0")
 
+    # Function creates and adds a slide with a pie chart to the presentation
     def create_PieChart_Slide(self, title, matrix):
         # Create a slide
         slide_layout = self.prs.slide_layouts[self.TITLE_ONLY]
@@ -173,4 +173,4 @@ class PowerPointGenerator:
 
     def save_Presentation(self):
         # save the presentation
-        self.prs.save("pptx_exports/" + UI.get_PowerPoint_SaveName() + ".pptx")
+        self.prs.save("pptx_exports/" + CLI.get_PowerPoint_SaveName() + ".pptx")
