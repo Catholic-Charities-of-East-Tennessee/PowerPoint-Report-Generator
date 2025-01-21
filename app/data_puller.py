@@ -8,6 +8,7 @@ Anno:       Anno Domini 2025
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
+import BOT_DATA
 import time
 
 
@@ -17,7 +18,11 @@ def pull_data():
 
     driver.get("https://www.vistashare.com/ot2/security/login/")
 
-    input_element = driver.get_element(By.NAME, "")
+    username_element = driver.find_element(By.NAME, "__ac_name")
+    username_element.send_keys(BOT_DATA.bot_username)
+    password_element = driver.find_element(By.NAME, "__ac_password")
+    password_element.send_keys(BOT_DATA.bot_password)
+
 
     time.sleep(10)
 
