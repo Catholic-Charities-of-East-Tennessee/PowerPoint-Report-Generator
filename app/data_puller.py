@@ -20,8 +20,15 @@ def pull_data():
 
     username_element = driver.find_element(By.NAME, "__ac_name")
     username_element.send_keys(BOT_DATA.bot_username)
+
     password_element = driver.find_element(By.NAME, "__ac_password")
     password_element.send_keys(BOT_DATA.bot_password)
+
+    login_element = driver.find_element(By.NAME, "login")
+    login_element.click()
+
+    # deal with 2fa
+
 
 
     time.sleep(10)
