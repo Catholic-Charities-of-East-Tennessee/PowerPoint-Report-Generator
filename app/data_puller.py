@@ -62,13 +62,16 @@ def pull_data():
     # Wait for page to load
     time.sleep(5)
 
-    # click reports btn
-    navigate_to_reports(driver)
+    # download each report
+    for report in BOT_DATA.report_names:
+        # click reports btn
+        navigate_to_reports(driver)
 
-    # search for desired report
-    report_search = driver.find_element(By.NAME, "rpt_search")
-    report_search.clear()
-    report_search.send_keys("")
+        # search for desired report
+        report_search = driver.find_element(By.NAME, "rpt_search")
+        report_search.clear()
+        report_search.send_keys(report)
+
 
     #time.sleep(300)
 
