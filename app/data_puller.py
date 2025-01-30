@@ -13,6 +13,10 @@ import BOT_DATA
 import time
 import pyotp
 
+def navigate_to_reports(_driver):
+    # Click on reports btn
+    reports = _driver.find_element(By.LINK_TEXT, "Reports")
+    reports.click()
 
 def pull_data():
     service = Service(executable_path = "chromedriver.exe")
@@ -55,6 +59,17 @@ def pull_data():
     verify_element = driver.find_element(By.NAME, "verify")
     verify_element.click()
 
-    time.sleep(20)
+    # Wait for page to load
+    time.sleep(5)
+
+    # click reports btn
+    navigate_to_reports(driver)
+
+    # search for desired report
+    report_search = driver.find_element(By.NAME, "rpt_search")
+    report_search.clear()
+    report_search.send_keys("")
+
+    #time.sleep(300)
 
     driver.quit()
