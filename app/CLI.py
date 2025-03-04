@@ -3,7 +3,7 @@ File:       CLI.py
 Purpose:    This file CLI.py (Command Line Interface) contains all the methods responsible for I/O (Input Output) to the
             Command line.
 Author:     Joey Borrelli, Software & Training Intern For Catholic Charities of East Tennessee
-Anno:       Anno Domini 2024
+Datum:      12/21/A.D.2024
 """
 
 import CSV_Interpreter as Interpreter

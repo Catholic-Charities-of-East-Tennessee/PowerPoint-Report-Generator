@@ -4,7 +4,7 @@ Purpose:    This file CSV_Interpreter.py is the file with all the methods respon
             formatting it before sending it off to the PowerPoint Generator. The data for each chart is held between the
             slide_rows & title variables.
 Author:     Joey Borrelli, Software & Training Intern For Catholic Charities of East Tennessee
-Anno:       Anno Domini 2024
+Datum:      12/17/A.D.2024
 """
 
 import csv

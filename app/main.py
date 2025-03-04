@@ -2,7 +2,7 @@
 File:       main.py
 Purpose:    This is the main file that begins the execution of the rest of the program
 Author:     Joey Borrelli, Software & Training Intern For Catholic Charities of East Tennessee
-Anno:       Anno Domini 2024
+Datum:      12/17/A.D.2024
 """
 
 import CLI

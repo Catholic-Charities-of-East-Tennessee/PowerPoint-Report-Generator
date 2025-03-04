@@ -3,7 +3,7 @@ File:       PowerPointGenerator.py
 Purpose:    This file PowerPointGenerator.py contains the PowerPointGenerator class, which is responsible for the
             creation of the PowerPoint (slides, charts, graphs).
 Author:     Joey Borrelli, Software & Training Intern For Catholic Charities of East Tennessee
-Anno:       Anno Domini 2024
+Datum:      12/17/A.D.2024
 """
 
 from pptx import Presentation
