@@ -1,6 +1,9 @@
 .idea
 *.pyc
+__pycache__/
 *.xml
 *.pptx
 *.csv
 BOT_DATA.py
+# report exports and the email printout hold client/staff data
+*.pdf
