@@ -1,0 +1,1169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Outcomes PowerPoint Maker</title>
+<!--
+  Outcomes PowerPoint Maker - Catholic Charities of East Tennessee
+  Turns Outcome Tracker report exports (.csv) into PowerPoints. Everything happens in the browser: report data is
+  never uploaded anywhere. The only thing loaded from the internet is the PptxGenJS library below.
+  How it's put together (see CLAUDE.md / README.md):
+    #report-logic  reading Outcome Tracker csv exports and choosing charts (no page or PowerPoint code)
+    #app           the page: loading files, slide cards, previews, remembering edits, building the PowerPoint
+-->
+<style>
+  :root {
+    --navy: #1d4a77;       /* CCETN navy (ccetn.org) */
+    --blue: #455d9e;
+    --sky: #7b9dd1;        /* blues from the CCETN mountain logo */
+    --ink: #222b36;
+    --grey: #6b7580;
+    --line: #d9dee3;
+    --light: #eef3f9;
+    --page: #f6f7f9;
+    --card: #ffffff;
+    --good: #2a7a52;
+    --warn: #9a5b00;
+    --focus: #ffcb05;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--page); color: var(--ink);
+    font: 16px/1.5 "Segoe UI", Calibri, system-ui, sans-serif;
+  }
+  button, input, textarea, select { font: inherit; color: inherit; }
+  :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+  [hidden] { display: none !important; }
+
+  header.top { background: var(--navy); color: #fff; padding: 14px 16px; border-bottom: 4px solid var(--sky); }
+  header.top .wrap { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  header.top .logo { width: 56px; height: 56px; border-radius: 50%; background: #fff; display: grid; place-items: center; flex: none; }
+  header.top .logo img { width: 44px; height: auto; display: block; }
+  header.top .names { display: flex; align-items: baseline; gap: 4px 16px; flex-wrap: wrap; }
+  header.top h1 { margin: 0; font-size: 24px; font-weight: 650; }
+  header.top p { margin: 0; opacity: .8; }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 0 16px; }
+  main { padding: 24px 0 120px; }
+
+  .step { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; margin-bottom: 20px; }
+  .step h2 { margin: 0 0 4px; font-size: 19px; display: flex; align-items: center; gap: 10px; }
+  .step h2 .num { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--navy); color: #fff; font-size: 15px; flex: none; }
+  .step > p.hint { margin: 0 0 16px 38px; color: var(--grey); }
+
+  .drop {
+    border: 2px dashed #a3c2e3; border-radius: var(--radius); background: var(--light);
+    padding: 32px 16px; text-align: center; cursor: pointer; transition: background .15s, border-color .15s;
+  }
+  .drop:hover, .drop.over { background: #e1ebf6; border-color: var(--blue); }
+  .drop strong { display: block; font-size: 18px; color: var(--navy); }
+  .drop span { color: var(--grey); }
+  details.help { margin-top: 12px; color: var(--grey); }
+  details.help summary { cursor: pointer; color: var(--blue); }
+  details.help ol { margin: 8px 0 0; }
+
+  .reports { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 8px; }
+  .reports li { display: flex; align-items: center; gap: 10px; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; flex-wrap: wrap; }
+  .reports li.error { border-color: #e7b4a6; background: #fdf3f0; }
+  .reports input { flex: 1 1 220px; min-width: 0; border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
+  .reports .meta { color: var(--grey); font-size: 14px; }
+  .icon-btn { border: 1px solid var(--line); background: #fff; border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+  .icon-btn:hover { background: var(--light); }
+  .icon-btn:disabled { opacity: .35; cursor: default; }
+
+  .fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+  label.field { display: grid; gap: 4px; font-weight: 600; font-size: 14px; }
+  label.field input, label.field textarea { font-weight: 400; border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; background: #fff; }
+  label.field small { font-weight: 400; color: var(--grey); }
+
+  .toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 0 0 14px 38px; }
+  .toolbar .count { color: var(--grey); margin-right: auto; }
+  .btn { border: 1px solid var(--line); background: #fff; border-radius: 8px; padding: 7px 14px; cursor: pointer; }
+  .btn:hover { background: var(--light); }
+
+  .report-group h3 { font-size: 16px; margin: 18px 0 10px; color: var(--navy); border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 520px), 1fr)); gap: 16px; }
+  .card { border: 1px solid var(--line); border-radius: var(--radius); background: #fff; display: grid; grid-template-rows: auto auto 1fr; overflow: hidden; }
+  .card.off { background: var(--page); }
+  .card.off .preview, .card.off .controls { opacity: .45; }
+  .card-head { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+  .card-head label { display: flex; gap: 8px; align-items: center; font-weight: 600; cursor: pointer; }
+  .card-head input { width: 18px; height: 18px; }
+  .card-head .where { margin-left: auto; color: var(--grey); font-size: 13px; text-align: right; }
+  .badge { font-size: 12px; padding: 1px 8px; border-radius: 99px; background: #fff3d6; color: var(--warn); font-weight: 600; }
+
+  .preview { aspect-ratio: 16 / 9; margin: 12px 14px 0; border: 1px solid var(--line); border-radius: 6px; position: relative; overflow: hidden; background: #fff; display: flex; flex-direction: column; padding: 4% 4% 3%; }
+  .preview::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 1.6%; background: var(--navy); }
+  .preview .p-logo { position: absolute; right: 3.7%; bottom: 2.5%; width: 5.5%; }
+  .preview .p-kicker { font-size: 9px; color: var(--blue); font-weight: 700; text-transform: uppercase; letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .preview .p-title { font-size: 15px; font-weight: 700; line-height: 1.2; margin: 2px 0 6px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .preview .p-body { flex: 1; min-height: 0; display: flex; gap: 4%; }
+  .preview .p-chart { flex: 1.5; min-width: 0; }
+  .preview .p-chart svg { width: 100%; height: 100%; display: block; }
+  .preview .p-side { flex: 1; min-width: 0; overflow: hidden; }
+  .preview .p-note { font-size: 9px; background: var(--light); border-radius: 3px; padding: 4px 6px; margin-top: 5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .preview .p-number { flex: 1; display: grid; place-content: center; text-align: center; }
+  .preview .p-number b { font-size: 44px; color: var(--navy); line-height: 1; }
+  .preview .p-number span { color: var(--grey); font-size: 12px; }
+  .preview .p-more { font-size: 9px; color: var(--grey); margin-top: 2px; }
+  table.mini { width: 100%; border-collapse: collapse; font-size: 8.5px; }
+  table.mini th { background: var(--navy); color: #fff; font-weight: 600; padding: 2px 4px; text-align: right; }
+  table.mini th:first-child, table.mini td:first-child { text-align: left; }
+  table.mini td { padding: 1.5px 4px; text-align: right; border-bottom: 1px solid #eef1f4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; }
+  table.mini tr.total td { font-weight: 700; background: #dde4ec; }
+
+  .controls { padding: 12px 14px 14px; display: grid; gap: 10px; align-content: start; }
+  .kinds { display: flex; flex-wrap: wrap; gap: 6px; }
+  .kinds span { font-weight: 600; font-size: 14px; width: 100%; }
+  .kinds button { border: 1px solid var(--line); background: #fff; border-radius: 99px; padding: 3px 12px; cursor: pointer; font-size: 14px; }
+  .kinds button[aria-pressed="true"] { background: var(--navy); border-color: var(--navy); color: #fff; }
+  .controls textarea { resize: vertical; min-height: 56px; }
+
+  .bar { position: fixed; inset: auto 0 0 0; background: #fff; border-top: 1px solid var(--line); box-shadow: 0 -4px 16px rgba(0,0,0,.06); z-index: 5; }
+  .bar .wrap { display: flex; align-items: center; gap: 14px; padding-top: 12px; padding-bottom: 12px; flex-wrap: wrap; }
+  .bar .summary { margin-right: auto; color: var(--grey); }
+  .primary { background: var(--navy); color: #fff; border: 0; border-radius: 8px; padding: 12px 22px; font-size: 17px; font-weight: 600; cursor: pointer; }
+  .primary:hover { background: #163a5e; }
+  .primary:disabled { background: #9aa7b5; cursor: default; }
+  .toast { position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 10px 18px; border-radius: 8px; z-index: 6; max-width: calc(100% - 32px); }
+  .toast.bad { background: #8a2c14; }
+  footer.foot { color: var(--grey); font-size: 14px; text-align: center; padding: 8px 16px 0; }
+  footer.foot button { background: none; border: 0; color: var(--blue); cursor: pointer; text-decoration: underline; padding: 0; }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <span class="logo"><img id="header-logo" alt="CCETN logo"></span>
+    <div class="names">
+      <h1>Outcomes PowerPoint Maker</h1>
+      <p>Catholic Charities of East Tennessee</p>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="step" aria-labelledby="step1">
+    <h2 id="step1"><span class="num">1</span>Add your Outcome Tracker reports</h2>
+    <p class="hint">Add one report for a program PowerPoint, or several for an agency PowerPoint. Your data stays on this computer.</p>
+    <div class="drop" id="drop" role="button" tabindex="0" aria-describedby="drop-help">
+      <strong>Drop CSV files here, or click to choose them</strong>
+      <span id="drop-help">The .csv files Outcome Tracker gives you when you export a report</span>
+    </div>
+    <input type="file" id="file-input" accept=".csv,text/csv" multiple hidden>
+    <details class="help">
+      <summary>How do I get the CSV file from Outcome Tracker?</summary>
+      <ol>
+        <li>In Outcome Tracker, open the report and run it for the dates you want.</li>
+        <li>Export the report. Outcome Tracker saves two files, a .pdf and a .csv.</li>
+        <li>Drop the <b>.csv</b> file on the box above.</li>
+      </ol>
+    </details>
+    <ul class="reports" id="report-list"></ul>
+  </section>
+
+  <section class="step" id="deck-step" aria-labelledby="step2" hidden>
+    <h2 id="step2"><span class="num">2</span>Name your PowerPoint</h2>
+    <p class="hint">This goes on the title slide.</p>
+    <div class="fields">
+      <label class="field">Title <input id="deck-title" placeholder="e.g. Samaritan Place Outcomes"></label>
+      <label class="field">Reporting period <small>Optional, shown on every slide</small>
+        <input id="deck-period" placeholder="e.g. July – September 2026"></label>
+      <label class="field">Subtitle <input id="deck-subtitle"></label>
+    </div>
+  </section>
+
+  <section class="step" id="slides-step" aria-labelledby="step3" hidden>
+    <h2 id="step3"><span class="num">3</span>Choose and adjust the slides</h2>
+    <p class="hint">Untick slides you don't want. Change any title, pick a different chart, or add an explanation. Your choices are remembered for next time you use the same report.</p>
+    <div class="toolbar">
+      <span class="count" id="slide-count"></span>
+      <button class="btn" id="select-all" type="button">Include all</button>
+      <button class="btn" id="select-none" type="button">Include none</button>
+    </div>
+    <div id="slide-groups"></div>
+  </section>
+
+  <footer class="foot">
+    Edits are remembered in this browser only.
+    <button type="button" id="forget">Forget my saved edits</button>
+  </footer>
+</main>
+
+<div class="bar" id="bar" hidden>
+  <div class="wrap">
+    <span class="summary" id="bar-summary"></span>
+    <button class="primary" id="download" type="button">Download PowerPoint</button>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+
+<script id="brand">
+// The CCETN mountain logo (from ccetn.org), embedded so the page stays a single file. Transparent background with
+// black lettering, so it needs a light background behind it.
+const CCETN_LOGO = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAeAAAAHKCAMAAADsPWj3AAABgFBMVEUAAAB3m9EDBgagweHN2eJ9otoDBgYEBgYDBgYDBgYDBgYDBgaewOCZutzY5e6FqNcOExacvuCApuBpiLVPZ4pGWXE5S2QrOEcbJC0jKzQ2RFXJ1d4UGyK80eKLobRUY29YcpddeaMtNDq1xNBtdXlDS1GnsbmOnKhgfahseoexu8NOVVo+UWx1hJF5k61kam8AEhKCi5GirLPCzdVtjsCMlZt/peCfwN9JX4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAC05jfqAAAAYHRSTlMA//7////QL2+vT47///////////////////////////////////////////////8N//////////8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAv92++AAAeNUlEQVR42u2deV/bOrOAA4llSXbIAoGEpbQs5QDt6Xruvd//k92sJLJlbZZjjTzzx/v+TgtprMezj6ReDwUFBQUFBQUFBQUFBQUFJQ5JU845pVmWMcYIE2T5h5RynqYprhM8rHRJlJBTQyFkiZtyJB082RVYY6xS1AxBh4q2HtkCZ8QcENul1p42IixDym3rbUZOmxXCKMeFbkdxWdNwDyw2qnK0cBHysaV5s6yCjOvfsOq2Bvcj8qKoyPGpblGRkXEDdE9DEmTsl65bojsezxfXz7MfT6+/fr28fPq6l98vLy+/fj093b8/PyzmY2QMS3fHD9fvT78+/X57HAzOdDIY3Dy+/X75/uP9ajFGxkePqqz87vjh+cf3T29/Bh/w1nJzM5DKx59vf3xJ+uX7/bMVZ0IRkrtQc9O8eH767+uW7MBZNr/++PvXj+uFeVyNuZOj8hqq7eL99dPjYEv2ZlBPbnacb95enp4XpmqMptpaeY1M8/j6x8ua7cC/rCl//e/+YYxq3Iry3j6//v6zDZMGjcjNmvLg8dMPE8jojT0mRePrp983zSiuXJdXkPWMMag2wau1zYv7l8cmFbcC8uDx1/scLXXTrvfq6evgWJpbVuQbvSITRFwtGtc7fv71eNYS3b0if316QGfcQGQVAN0PRX57fUDEfvFer+gOQpEVY40eI2ILvA9PbwHR3dvqHwvU4vq+d3z/exAc3i3jm5fnMSLWR86qoPnXnzDp7hg/vi4wonZNjMb3X0Omu2U8+PSOiF3KGg/f/4SPd6vGT9UVENbl6lZaXZR8/jQAQXfnjX9VB9UZxlYgbXPJUj9jzmQWW42fHqHh3ajx13d0xXvrXOV8569/ANLdIn67H6MrVlrnxfcbqHi38daPMdrpHo8T74bx41MFYtIVJa6KnecR4F01qau1uBvxNK0KrWLAu0M862ywVaW+P/5EgneL+O29m0pcob7vb2dHHcA5Rrj1+6p7Slyhvle/z87iwrtB/N+iY0osV9/Ff2dngyjlbCAPqGNVYrn6RhNbyXOm984osTz3fX6LGO862vr00I2cWFq6WrzE6HyLdvp1HH9hS155/nFzNuiAnD0+x26mpeb54Wsn8C7t9DKenkdtpqXm+XUQvXU+UOKbWbxmWmqer97OBp2Ss0+LSM201Dx/75L67pT4PkozLStuPHRNfXdKLPPEPD73+9Q99d0p8Xtsjljifhe/O6m+W8T/SXJiBje8kryvs5uOqu8uJ5b0mEg84dX4vw6r7yYnHjzFEmplGF2Zx1o8Cr73g06b5w8l/vMcQajFKs1zfy1dJjw4ewJf8yiHz4uVeb7r9/NJvpRJ3r/rtJkegw6mJeHz+83Z45pufyt53u+ymX58AExYEj6/3vUfD+huEHfYUC+j6Xew6VKZ7/i8P5z0yzIxJxyf5z57BZoulavP81F/2JdK2U7LPfPOc/dj8txnL2VHnELkezWs4ltU4rsV8b4Eb5Se++bsbQGPcJnvrK/gKyDrr530pKil/Yla6SFnxFfQSh5lvp/VfDfI7tZeNpci7OclpY/ITr/DIlzm+70/zPs6yTeaK7Xb/dzAcwN2xE+QCJfKk+N/dep7kDMJ/3VXzdcu/A6e8Hc4hEt8b0emfKuUtJ9XvQ/NLfndcT3A2QsUwiW+i6Er351K53n1G9AMhpV5WDmLuyOGWr/HIAiX/O9DHb59oa55JDN9t/s31/93xHRpDoBwie91Xo+vVrwTFgzGqqoisG9OqW/OHhfBEy7z7TfM1zfhsj/Yq/GK92T199aQ71S+fiePgzLhNHC+s+b5eg21+v2J1EvsUa8dv5HlvtsHCluTL/uB5Suzk3zpzB6CJswlfP+334dDuF/p71eqWwwM1D2RfK3th+XV9Sfs2a7+oPDPBU5Yxjfv98EQtvu2Be98qJdlciLknaUvi4RwON3DtDW+ftIl+y8rU+P+JM81X1X19wETbpOvByXu5y5fttS6rP3IEsKBzHiQVvnWJHwnDa5Mq217xh4eOVTCrGW+VulSIZ2960/yWv4hl9fSnQkvwpu1ZOX898h8zXV4k5t8MO67WedSlL3+zH4zhFufl86OX98wGv1R5UKF7DYgWRKeh1XSKhY4rlrha2Sm7w4sS17IbgMiPLoNKR3mPvtHzSqxD3N8FMKlmfiAEqR5e3z3oz9V5rkPQ4b9f8NJhwsJ0njUJl9FjQkQ3xXh76EkS8UA+qVlvrtS8V29UmT7hF/DCKWLAdZ5+3z3cwJei0xHJ3wfQihdDLBew+B7WNq/85XsHj2YeG4/lE5LBaxhYKs02W1UBSfLr3zVeqBFigWOHOBKhmukiwWPo9css1IC/L/IxWvBY9xqoEUDS5AiJHzephsuOuB/ka9/whctumESbAAdE+Hr1uodBQf8jnybCaUXLbnhQgb80O9jAH2UQOtYbhhqgJUPdwI00DqSG2ZBViiNbB44Hb5vIRsuZEj3fTD68P36/Xkl1zMoMUNerGilR8+QrgCpw/5ijCEQdR72h+NjG2kxQxoPwUTQB/ZuDAVwuf2fHTlDOoeTIYEEXHbD/KgGegYoA4YJeCkPxxzRInAzYKCAS9lwdkQDDarFAFWDSzNa/GgG+jOoEiVYE10sSpNjGegrWCVosIDz/vD2OEaagu4BgwVczpXSoxhoaD1CuICFGk2DRpoVhrCA9QgBA86LI1qNNA55sYSVI+CojDQBPsQBGXDJSLOmI6wreEMcoAGXImnecIQFIILet/d3Xf7ZYYtElDz81/N7s3GWGGFdQJzCujvU4D48A3TdZJwlRlgLECvy8kmQl9H++Px/P4l/+TIEALhQk24ywgIwBl3eoaeUewhP9Lm5ehYF1ySMD3C/OEbrM1WClwJHCLiYDLOmFBhEChyjBhfjLN6MAoOIsKIEnBfiLG+pUgZwo1mUPrj4ULyJGkfbTYb843+sansa8R035hvxX8+aN6DCLKAa1mrJjE5lGPbPZzv5drmS68v94lxfCjKbeTRLueK/fNezqH8FbjVFWq7WZDhKkmQ01C7dx19PpqvfWMrk28dTnEyTQ5l6O9hw8zGr4udoKZtNULnXFXjwXu1gAaVIw9HJVkba9ywfDh8f979wcpJcfjzG35OirN8ZH8+2RJs08LEVqRL1rcAtztktV2l4iESjxLnwPqxkugd8IhMfLMR/cfuxE4+Ii6mSZwWet+l/h0lh5SbV65ZLFlsHuDbiXHwDRTXOfQH+5FeF0zBqHMvlKetGUuEv1pfVFl8HE8Drj6zBYlj5uR4Qb3/9sZAeeFXgFmscEtu3MdMVypuUf9gE8Apx7sxipPjc0aSecVi/tGvx6oXT4m3PbfGtWrbCqq3TKPnLYAh4q8UOma9Cgd0/9oPuMixPSsFifRVm4laktiLokYFibMsKUuW1AmxnUPfVjKHmU13fnA3dg485H3tT4aIHfmzH/yqX7mDcZlJN1wqwSRZWTMmGoxO9jHIHvLkiWqxbzhKq0Iv1F8wD47sOUoeb0oL652wAy927PO1d2s7kxFBUkb95OCGqMPfVRrpINlYmD4uvsdgBXht/t9BP+TaaE84r/wFvKiz0gecfViYPxQE3CngVwGnbd/bfIpm422bvKlxS4F2oIOmT5I1U190W0Q/gE21ZduLyNUY1bPPHo1x7Ge2QKfA+Ajm8IHfzf8s8beK9uO7LQDsAPtEpm9t3GxnQ1Rj/5NzLdBaRKfC+viq8y7s0bdNB8cd4krQIeKR5EseXb6SvaOjMVnLtYcBSmIW+LX3LVew6WXuKQvzqsYHi0UC7AF6jqGzbu3+5UcXy5Nu43MCTn3sodghFjtlU+u8kI5mnGK1z0zwoA+0EeGeqKh7F2bqMatFdr/xV7WKHUOQY/7WMFbeVglpTK375OgH+YJwbtT9sCOflOYGR+Scmn2tnSkKR49r+ZR0Nd47akbJnvq6AZSFH/fRtXWI9GNxSF+FkMq+bKQkh1rmTNUpWjjrvO2HO+5751gC8epLit5vUjQ72JdaJjep+fKOLmpmSEGJd1Yhl15QnB8V57bjh5q8no5NwAJfc5rB+dL8psY5Grs85rpcpCSHW56T+0+yibrPsaOgbb13AB4T9Gxen7/OtVqaUVhQ56nMebXsDQ+nN6JPJ+q1OGliRmoC3hFfmpYG3z2Epz2uFWUKINWvmgVYTqyNBkiRpbkXqAt7p8CQEvKVMidcIscbnJzFIbcCraHo4HIXyPGKmxFoKsaICHJrM3atZQoj1BQGH+UAz92pWMyEWAg4lzKJHCLEQsOcwK3W10OcJAg4U8IVjKpxGGGLFCFisZhFHC32BgIOV0aWbjRaS4JMIVyOWR0q+ONnotGajMFQN/hafiRZSYeJkoT/HAjg5iDn/mcby0s5cbDRRzWKB5XtycE7c+CKS1E9MhTMHC30ZSxL8RTzK8zKJwzIlDjaaRlimTEqHKi1OongyFxvNorPQyclV+Wis8ZcYHLFoo6l1HTqKGHr6z6389LModNjaRvPYYuik8sy7qwjM9MjaRmdxWWipef54vnPwMaS9jSZRWejp+Vx5SGUEhdi53VxHGtXji/0WmVxDN9PibnC7JAl6HTo5udYfNDsH3g4VR7O4lYUG3ilMNOZ59xp/Bp4vja2KWfHMckxl5plyyR9+A/0iC3MdxCpJgmy8ksJ5YXsLxiLLl0YXNk44liQp+bsocySp5IqCzaMC7i+JiRK3SZLgWujp53GZYia/xw1+WWtu7oQjSZKkxauDdzslMeVLgjMiHXDB0uIVSRU3ycDOl8RkPzV2wVAH3qdfbhXmWX7Z19ZkAXXEwrlo3NgFX8J8oaXmWVKjlZnpS5hmOlkYO2HwLtjEPMvvCwI8BjA1dsLgXfBIVrxiZncywh0DSIwzYQrcBUt7C9T03muw+ZJ5JsxAtwrlvQVuca0b2LLW3LAnTCC7YDvzrMiX4I0BCEdXMsMyBzQXPLU0zyozDe3lFlwTMXtWYIXo5OTS2jzHU9YSnXBqZK6ugD3hwsE8KxwxtLKWWanj8EG/QUoX1L0F2zvst2MAkByx0BPOoitzJN9czbPKTEMaAxBKHSyyGMumeBVrvmQWZcGMscx6C5Zn+20X4QsUMy1GWSaeCEyMZdpbcMuX4JS1bg28E4PXSvJjnhWOGIqZFhpKNJo61vRcYp7ZTz9X+YHKl/7n2sBBHT7XPxAeK7nwZZ6VYwAjaEvB9EH0GIR5vvZnnqGPAQjn7ZCf2iADQK8wceotOOVLi79J+KuhD6NhBdFT7+ZZWdYKX4dvtdXowwjjchq6eb6sW7yKLF8yCKMZnMCiKfMMuKyV6MNoAuZwnbq9Bbey1nnQVk04bodps6Sgk7/6vYUIxwD01WgoWZLX4lU8YwDJPzrAQLKk4pF1/s0z0LKWNk+CkSXptpX5FFm+FPDuFl2eRAG0Go5knmGOAcw1r3wWftYnPbKO9RoUQPmSMLXDdWlwkM+QNFa8shwDCNJMC7uEKcA0uJHeQkRlLSE6yTSAAwwWpw0Xr8CPAWgbhoex4l80z+DyJeFANAKsztFobyGSMQChYagB7FznaOic/KQt89zGGIDrGood4Z/KYOLB9atfnCdT/4/dfG/BbQygATOdTE++OKcwY2Upi9cvZK0C9cXMN+PkGL2FIHa3JKPkfDZ3D9LVpSxae+/3LhHzy1i4Dud42dHR86VkdLKmu/5Yt0R7bgzYaePZYaLtj/HxegttlrWWi3U+W9Q8zyl5UFo4oVLp8PnTgiFdMR7Vfvpj9hbcylr/jOr7IJGua4yuqVVm9T5+KiFRW4+P3FtoZQxgSffiysuZbMLQDvdcih5V3GxSS4+lvYWs16Z4HgNIkr8XFXeG2J9SPlIXo2sBHs2qD1R3Zpz8X3vFq2OUtZYJ78XVuHLdrEN0wYiqAdv2GpKZ+tB8F8bBmWe/ZS0NXRcdnqq7Dcx9Y9J0pr8YYcXYpkYzart4ZVnWsqo/LX/4s4aug54JJ79nHptJ04tTI7m6MGfcZm/BKV96MHbEK7rXY6MVsyPcFGBTvhaM5a1f3gtGnA+5TEZLurfG62VlSjX9QlfANnwNGQdsnmuVtZZ0v1ze2izW2IaE0C/0Bjix5LtjrIi5pK9M1gtLrMcAVm0EO7q2hDUa7NYOLsPIKKmlxy23fmvmS1MFXYNbugjN3Ak3AVjCd/V2Z8RZj6XX4bC0F6BQw7LWku75NxO6WSoJ4G6NCQt7wP0AlvPt1WAcQuvXa1lrRXdmTLdXh7Bm84oD4Gq+rozD6i3UHgPYNXj1dLniQ28NMzABsA8NVvO1Y5wEXbyyHAOYVjaJ9HRlhOdmhH0Dnn42MaUWjH0dWRdEvjRNzi8M6J5m3MAwmBH2DFhw6UoWRozHVxfejqwLYAygskkkBo9V3oe4EPYL2JyvuR4DM8+KfGk8rkFXRnhxbA224+vImPVgCLd/dZnNJaEbo1C3kmUF2J6vA2PagyIp8UtXRvjhmLXoMl9TZTNnTHgPkGTmdKnjS6OdZfYHWJyhtzWmZoxZD5ZQQ7qpu1nQEfYGODkf16ShZ0x70ERvpgm1ixnTUzvCFv1gZRuyPl89Y94DKMwnXSlh9YYEDWDTmSw/fJWMWdoDKdQnXSlh5dkpFjNZiqM3/fGtZJz1oApXtxEaJixsPXAdm/XLV8qY9+BKyjzSlb4yil1FmkM6jHY2JKUj9H1Eu/yAMUl7oCXzSFdKeDbysHWlam9SM3wPGWc96MIrm0S+CCdugIVz0KZH5rthDDE7qsiXMu79jdFvWzLfPioPx8t8SQ9FFk3zRmyClrB6A7h2h39ygnwDCc4rCKuPcNAdwpKczJFvKAm2jLDuEJZUmAJCvuAIixfrSD5EGMZFvqETHln2GtTdBuQbHOFSOdnqrMpCrVLCN8U1D4ywcHuhLN9U1SoXyDd4wsLFSboDwQs1beQbgpSmRgqO1OZIfzERRr5hEhY2pukvL6y8dQX5QiCsO024+jzh0nw+8m1NWDVh15vPkivkGzDh/dZDy7sLd2E08gVDeK6dWWTljjDyDZ/wbtvSWEspK4fRyDd8wpuNacLGpIobwMthNPIFQ1h/+WghjD6X2WeOqxuClDeXFgqVFYM2P4WDEpPkGvkCIbwwirHE35tNkS8owiaeVIiyviFfQISvPutjLM0OOeQbkpS2uo1NevUp8oVL2GTvz0/kC4iwCyyGfGMgXF2tyJBvBIQV43Ic+UZAOLP9DYpLGahwa30kyBc+YVXDgCFf8ISVE+sU+YInzKzcNvIFR1iNDPmCJ6zu2TPkC06ozaYxinyBE87Mc2fkC5GwriqFfIET1o3NMfjnzXWaMDH9SeQLSzJTbhz5giasbwwhX9CE9ZPrDPkCJkyMfgz5whRmhI6Duy4BZU/YZDYD9RewlcbNYygoKCgoKCgoKCgoKCgoKC0LxeGKuPni+EzsfJFw7HyRcOx8kXDsfJFw7HyRcOx8kXDsfBEw8kVBvijIFwX5oiBfFAu+AGfRU04ztpQso3hSno4vNA1OKROPVCM4ka3mC4owlx5ai4yVfOEQptUnVTNEXM0XCGFOVNcCIOKe6uKE8Amn7FQnGfI9BUuYnhoI6XhMrboYI3DC2amZUCQMcm3IqakwJLw7tQzO6a+pOV+jkyQ6QZjDOd83PbUSJPxx5BEMwpZ8l4RTJMwr1i5EwuTUmnDndZhXageNgC8SPsgWeeiE2amL4GlNUAjTUzfBHjcMwuoAi2U8XQqnzO6Cn8gApoAJKxwwE75mqc/UGTfMVt1SDpQwtWgddXQQaWe8iGq2hYd6Y6RVU6FY7+oU361RS2ERppZtwaxzzcNS8EEqIIdJ2PrG4axjKizPIZcuOQVBmNoXIrNOeWFFjaAcdwVImDgUqViHAmldDagAOTjCqVMRsju5sFGN79Alh0Y4s72guPQUKxuddpqvCDkwwsTyhvHyr7GVGWBd53sQXIdF2LHCfPgQazPPkO+HSw6JMHftAh6+ELG2lphjD4aRcAhT1wYCi7956MrXKao5XozFXH8xNsI++bZHmLl+Exr7AIBfvq0RJq6QeOQjHr75tkXYORzglgXszvNtiXAJcI3oLKLWUjVfShkows4jGjRmvkRNiWcEDGHiyojFvK9UuQlvs5vBDXLaOmDq/pLH1PrXE+6tzzGxJnz0IIU5Ak4j3xeeHTgtVeUxzewgH7177jpEl0XIN80OniI7CEo0tWULa3386Qju+A1IdBnwxt4WX+HNZIu2e1A6dSqcjQJuX4FHxjfNys+fHSQVJv0hvUtuZbqJOZEqDM8C53swz08EN0Sq6zryaElprduZXqOOeTAx4rva8xL4tEfh0LfDb0tVlbuqx6pMoFqaTkxdMzWi5pvS7MMtEcICPe0ypcaFAG6R08qsdWvTp8z1e5BqvqnsJSY0DVt5NbVable1KKxBe9PF3Hk7GangyyuDjZAYpxUnNnJfhAWX3Ob0OHE2JUTGF8ZRiNUvITMvGpj4s00C1erugNSxn7QmXFwOg6MQ20ecZsStXkzdasu85QCEuee0VLcCAZ52yZn7t3Mk3PYL7S3eMz0Ksb3TLlODr9iLjrCvXd0Wdfd2lJgaFY15fIQNe0qamoVVg5QFqbwGXw0mYaNnpOpHt2yAH/mkPLXyMuGv0/gI83LGKl0hf3yPSlgdV63voqDmLkpBmAfbNaXqogTPdO7JZRvPxnK2VdHYKS8vRZqk50iYB9wXz6SvNqV0dXmS3j05HaW2XshlSP2zvaRo/xYzi8GaCsI86MkHMxU0zLQKrwnnB60HMZamTVYwU+2shdxLsZ4LYR74bIsRYWrpgA/ZSWwl3/1mE1cycWb1PFbVvKxMmAc/vcSM/aaxgaaaNSe86AuPnBQROTNqTZhQAPNpJoRTkyxLUXVW9CJ8EjaOCVKpmzHoqWXB1mLrlRqp+a9Ry9foINbKyFKYKNlW6Fa4KGl6OD7CHUpqzC63BUmYOtloS4XM9IvivP+HWKfljmGWmnC4Q8TcwUZntgY3035wVhswlVc0VHbm56llQJDB42ugPJmZAlPbqibreQXck1c0MoMwy/yW1QwgX72ZNvp59TOmOsvgATArlyPl/3IhzLKK5jOYm2gzq1YuMc6mVGaC1C18Fj+Gy/2FctMcsS65ZMGMx/pJIiWvd+qyTTLVuGwPgHvy/hC1a/DbEwZ8S7T8kGS3neCakwV8AKZyB+85/+ZA+a4riweVXJZV3UphNVtc+VpkngCzCiuhMqqsm3y3q5SmXD3I4bZJQzPK6QOw8CFU5VLc6+AduMKCn7o5NbUSeQHM9b65ZtjbhStKqGOaQJQ6lG7rj2WAm3Llrny5qmiSyjfFNMwiyNeqLpJaAybG9l/3UZXlksx/mNWNK4aIoz4wowU2enkqATccZpEu8O25FnKYkdOuB7gizOK+wizSAb7O9o4ZrU1NwMZhFq1tvqK9fMa5MHRQSen5Ayyaj5+nDYdZJHq+vRprtZvfYRaf3rMC3HSY9fFvR3x5VK2AZVPzTpsDXBFmeTyunkTOt1d3qSghveYAV6TC3GPHgUR++Vuz3VAjDqrXi+47Jerkzh0SiftyP9I+YE7pbiCPUfknFGc0/IVZ0Qvx5s2cASslM21ip8hSX7Dwrgr1AafyASsGcNCmHaF+ByS8A65K0U4b/d4RSdqorWvOPPgMs6KWn40uVNmQFnY2OH9yhmFWAE44ddsq5fjRGGYZerMUAmAMs5qrZWVBAMYwy92bpZqfZyEA/tns/tWoVZjo8ioWAGDP87PdUuFMZxmzAACrwiyKOZNShfXnptP2AVfOz6771EhVHa9kuroX9wO4zteWblPanRSDKqw20tLzOVLLQxIMtqP7tjwMyx6G1k6iA9TaujYMOGvK+Mcnclt62Mgp70glLoAzcWcDa+BbY9nDYq1Itjr+htNMe2iDGWDSvOHBsodrPORAuGnA1OFQv+4Str8wmVoD9l2KsD/Ur8tiu+dT7+UaB8wwzPIWlbpEMQ0D5sovTLA0XctMm7i4JgGbnROOYhO2WHduaGOADQ75R5ErhpEnNryvwQhwekr2YqZ3HJW3WcSZqz1gOjtuCFjx6lFU3rqIzaMXe8CGdAgqb2MRjM1WHmqi+i6Aad1vhlJxnb2dijQGuKcunKOY6rFw1Qphtv6tOcAZKq83yqvNf6s5dQcNaQ5wisobZFbtDfA+zMK4Kk7AFCsabQZo6xtXSPmyNCK5cSVzaxCg8rYJ2PUsUgvAGSpv3IBREDAKAkZBwCgG6RECRsAIuBOAce0QMAoCRmk8jF4JFSTLCvuSyP7elY+7V3BYHQUFBQUFBQUFBQUFBQUFuPw/6kFSReanBg0AAAAASUVORK5CYII=";
+const CCETN_LOGO_RATIO = 480 / 458;   // width / height
+</script>
+
+<script id="report-logic">
+/*
+ * Reading Outcome Tracker csv exports and choosing charts. Pure functions only, so tests can run them on their own.
+ *
+ * Outcome Tracker exports every report in the same crosstab layout:
+ *
+ *     Closing Summary,,,               <- section title row: only the first cell has text
+ *     ,,Role,                          <- column header rows (first two cells empty), there can be several
+ *     ,,CES,Total
+ *     ,,,                              <- blank row ends the header
+ *     Placement,,Count,Count           <- measure row: starts a table (the first cell may be empty)
+ *     ,State Custody,10,10             <- data rows: the row label is in the second cell
+ *     ,Total,15,15
+ *     ,,,                              <- blank row ends the table
+ *
+ * A section can hold several tables that share its column headers, and a report may start without a title row.
+ */
+const ReportLogic = (() => {
+  const SMALL_WORDS = new Set(["a", "an", "and", "as", "at", "by", "for", "in", "of", "on", "or", "the", "to", "with"]);
+  const MAX_SERIES = 6;       // with more columns than this, only the Total column is charted
+  const MAX_PIE_SLICES = 5;   // pies are picked automatically only for parts of a whole with this many slices or fewer
+  const MAX_PIE_CHOICE = 8;   // most slices a person can still choose a pie for
+  const MAX_BARS = 15;        // longer lists chart the largest values and group the rest into "All others"
+  const LONG_LABEL = 18;      // category labels longer than this switch column charts to horizontal bars
+  const MAX_TABLE_ROWS = 40;  // longer tables only show their largest rows
+  const TRUNCATED_ROWS = 25;
+
+  function parseCsv(text) {
+    const rows = [];
+    let row = [], cell = "", quoted = false;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (quoted) {
+        if (ch === '"' && text[i + 1] === '"') { cell += '"'; i++; }
+        else if (ch === '"') quoted = false;
+        else cell += ch;
+      } else if (ch === '"') quoted = true;
+      else if (ch === ",") { row.push(cell); cell = ""; }
+      else if (ch === "\n") { row.push(cell); rows.push(row); row = []; cell = ""; }
+      else if (ch !== "\r") cell += ch;
+    }
+    if (cell !== "" || row.length) { row.push(cell); rows.push(row); }
+    return rows.map(r => trimRow(r.map(c => c.trim())));
+  }
+
+  function trimRow(row) {
+    while (row.length && !row[row.length - 1]) row.pop();
+    return row;
+  }
+
+  const cellAt = (row, i) => (i < row.length ? row[i] : "");
+  const isTotal = label => String(label).trim().toLowerCase() === "total";
+
+  function parseNumber(text) {
+    const t = String(text).replace(/[,$]/g, "").trim();
+    if (!t) return null;
+    const percent = t.endsWith("%");
+    const n = Number(percent ? t.slice(0, -1) : t);
+    if (!Number.isFinite(n)) return null;
+    return percent ? n / 100 : n;
+  }
+
+  /** "ces-success-indicators" -> "CES Success Indicators" */
+  function prettyTitle(stem) {
+    return stem.split(/[-_\s]+/).filter(Boolean).map((w, i) => {
+      if (i > 0 && SMALL_WORDS.has(w.toLowerCase())) return w.toLowerCase();
+      if (w.length <= 3 && /^[a-z]+$/i.test(w)) return w.toUpperCase();   // usually a program acronym (CES, SP, PHC)
+      return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+    }).join(" ");
+  }
+
+  /** Reads the text of a csv export into {title, sections: [{title, dimension, tables: [...]}]}. */
+  function interpret(text, fileName) {
+    const raws = [];
+    let section = null, table = null, inHeader = true;
+    for (const row of parseCsv(text)) {
+      if (!row.length) {                                    // blank row: ends the header block and/or the table
+        if (section && section.headerRows.length) inHeader = false;
+        table = null;
+        continue;
+      }
+      const first = row[0], second = cellAt(row, 1), rest = row.slice(2);
+      if (first && !second && !rest.some(Boolean)) {        // section title row
+        section = { title: first, headerRows: [], tables: [] };
+        raws.push(section);
+        table = null;
+        inHeader = true;
+        continue;
+      }
+      if (!section) {                                       // report starting straight away with headers
+        section = { title: "", headerRows: [], tables: [] };
+        raws.push(section);
+      }
+      if (inHeader && !first && !second) { section.headerRows.push(row); continue; }
+      inHeader = false;
+      if (!second) {                                        // measure row: starts a table
+        table = { label: first, measures: rest, rows: [] };
+        section.tables.push(table);
+      } else {                                              // data row
+        if (!table) { table = { label: first, measures: [], rows: [] }; section.tables.push(table); }
+        table.rows.push([second, rest]);
+      }
+    }
+    const stem = String(fileName || "report").replace(/\.csv$/i, "");
+    return { title: prettyTitle(stem), sections: raws.filter(s => s.tables.length).map(buildSection) };
+  }
+
+  function buildSection(raw) {
+    const headerRows = raw.headerRows.map(r => r.slice(2));
+    const width = Math.max(0, ...headerRows.map(r => r.length), ...raw.tables.map(t => t.measures.length),
+                           ...raw.tables.flatMap(t => t.rows.map(([, cells]) => cells.length)));
+    const names = columnNames(headerRows, width);
+    // with several header rows, a first row holding a single value names the columns ("Role", or a survey question)
+    let dimension = "";
+    if (headerRows.length > 1) {
+      const firstRow = headerRows[0].filter(Boolean);
+      if (firstRow.length === 1) dimension = firstRow[0];
+    }
+    return { title: raw.title, dimension, tables: raw.tables.map(t => buildTable(t, names, width)) };
+  }
+
+  /** Names each column from its lowest header row, adding the row above when that alone is ambiguous
+   *  (e.g. "Number of Clients Served" / "Total" and "Number of Meals Served" / "Total"). */
+  function columnNames(headerRows, width) {
+    const parts = [];
+    for (let c = 0; c < width; c++) parts.push(headerRows.map(r => cellAt(r, c)).filter(Boolean));
+    const lowest = parts.map(p => (p.length ? p[p.length - 1] : ""));
+    return parts.map((p, c) => {
+      const name = lowest[c];
+      if (name && lowest.filter(n => n === name).length > 1 && p.length > 1) {
+        return isTotal(name) ? p[p.length - 2] : p[p.length - 2] + " - " + name;
+      }
+      return name;
+    });
+  }
+
+  function buildTable(raw, names, width) {
+    let measures = [], values = raw.rows.map(() => []);
+    for (let c = 0; c < width; c++) measures.push(cellAt(raw.measures, c));
+    raw.rows.forEach(([, cells], r) => { for (let c = 0; c < width; c++) values[r].push(parseNumber(cellAt(cells, c))); });
+
+    // keep only the columns this table actually uses
+    const used = [];
+    for (let c = 0; c < width; c++) if (measures[c] || values.some(row => row[c] !== null)) used.push(c);
+    measures = used.map(c => measures[c]);
+    let columns = used.map(c => names[c]);
+    values = values.map(row => used.map(c => row[c]));
+
+    // when a table mixes measures ("Count" and "%Col Count") the measures tell the columns apart
+    const distinct = new Set(measures.filter(Boolean));
+    if (distinct.size > 1 && (!columns.every(Boolean) || new Set(columns).size < columns.length)) {
+      columns = measures.map((m, i) => m || columns[i]);
+    }
+    columns = columns.map((n, i) => n || measures[i] || "Value");
+
+    // some reports hold fractions under a "count" measure (0.25, 0.5, ...), which are really percentages
+    const numbers = values.flat().filter(v => v !== null);
+    const fractions = numbers.length > 0 && numbers.every(v => v >= 0 && v <= 1) && numbers.some(v => v !== Math.trunc(v));
+    const percent = measures.map(m => m.includes("%") || fractions);
+
+    const rowLabels = raw.rows.map(([label]) => label);
+    return { label: raw.label, columns, measures, rowLabels, values, percent,
+             totalRow: indexOfTotal(rowLabels), totalColumn: indexOfTotal(columns) };
+  }
+
+  function indexOfTotal(labels) {
+    const i = labels.findIndex(isTotal);
+    return i < 0 ? null : i;
+  }
+
+  /** Works out what a table's chart should show. Totals are left out of the chart (they stay in the table). */
+  function planChart(table, dimension) {
+    const { totalRow, totalColumn } = table;
+    let rows = table.rowLabels.map((_, r) => r).filter(r => r !== totalRow);
+    if (!rows.length) rows = [totalRow];
+    let cols = table.columns.map((_, c) => c).filter(c => c !== totalColumn);
+    if (!cols.length) cols = [totalColumn];
+
+    // chart counts rather than percentages when a table has both
+    const countCols = cols.filter(c => !table.percent[c]);
+    if (countCols.length) cols = countCols;
+    const percent = cols.every(c => table.percent[c]);
+
+    let categories, series, partOfWhole, note = "";
+    if (rows.length === 1 && cols.length > 1) {
+      // one row of numbers spread across the columns: the columns become the categories
+      const r = rows[0];
+      categories = cols.map(c => table.columns[c]);
+      series = [{ name: table.rowLabels[r], values: cols.map(c => table.values[r][c]) }];
+      partOfWhole = totalColumn !== null;
+    } else if (cols.length === 1 || (cols.length > MAX_SERIES && totalColumn !== null)) {
+      const c = cols.length === 1 ? cols[0] : totalColumn;
+      if (cols.length > 1) note = `Chart shows the total across all ${cols.length} ${plural(dimension || "column")}; the table breaks it down.`;
+      categories = rows.map(r => table.rowLabels[r]);
+      series = [{ name: table.columns[c], values: rows.map(r => table.values[r][c]) }];
+      partOfWhole = totalRow !== null;
+    } else {
+      if (cols.length > MAX_SERIES) {
+        const size = c => rows.reduce((sum, r) => sum + (table.values[r][c] || 0), 0);
+        const largest = new Set([...cols].sort((a, b) => size(b) - size(a)).slice(0, MAX_SERIES));
+        cols = cols.filter(c => largest.has(c));
+        note = `Chart shows the ${MAX_SERIES} largest columns; the table has all of them.`;
+      }
+      categories = rows.map(r => table.rowLabels[r]);
+      series = cols.map(c => ({ name: table.columns[c], values: rows.map(r => table.values[r][c]) }));
+      partOfWhole = false;
+    }
+    series = series.map(s => ({ name: s.name, values: s.values.map(v => v || 0) }));
+    const empty = series.every(s => s.values.every(v => v === 0));
+    const plan = { categories, series, percent, partOfWhole, note, empty };
+    plan.kinds = availableKinds(plan);
+    plan.autoKind = autoKind(plan);
+    return plan;
+  }
+
+  function availableKinds(plan) {
+    if (plan.empty) return ["table"];
+    if (plan.series.length > 1) return ["column", "bar", "table"];
+    if (plan.categories.length === 1) return ["number", "table"];
+    const values = plan.series[0].values, nonZero = values.filter(v => v !== 0).length;
+    const kinds = ["column", "bar"];
+    if (!plan.percent && values.every(v => v >= 0) && nonZero >= 1 && nonZero <= MAX_PIE_CHOICE) kinds.push("pie");
+    kinds.push("table");
+    return kinds;
+  }
+
+  function autoKind(plan) {
+    if (plan.empty) return "table";
+    const long = plan.categories.some(c => String(c).length > LONG_LABEL);
+    if (plan.series.length > 1) return plan.categories.length > 6 || long ? "bar" : "column";
+    if (plan.categories.length === 1) return "number";
+    if (plan.partOfWhole && plan.kinds.includes("pie") && plan.categories.length <= MAX_PIE_SLICES) return "pie";
+    return plan.categories.length > 6 || long ? "bar" : "column";
+  }
+
+  /** The categories and values to draw for a chosen kind of chart, plus any note about what was left out. */
+  function chartData(plan, kind) {
+    let { categories, series } = plan;
+    let note = plan.note;
+    if (kind === "pie") {
+      // zero slices only clutter a pie; the table still lists them
+      const keep = series[0].values.map((v, i) => i).filter(i => series[0].values[i] !== 0);
+      categories = keep.map(i => categories[i]);
+      series = [{ name: series[0].name, values: keep.map(i => series[0].values[i]) }];
+    } else if (series.length === 1 && categories.length > MAX_BARS) {
+      const ranked = categories.map((c, i) => [c, series[0].values[i]]).sort((a, b) => b[1] - a[1]);
+      const kept = ranked.slice(0, MAX_BARS - 1), rest = ranked.slice(MAX_BARS - 1);
+      categories = kept.map(([c]) => c);
+      const values = kept.map(([, v]) => v);
+      if (!plan.percent) {
+        categories.push(`All others (${rest.length})`);
+        values.push(rest.reduce((sum, [, v]) => sum + v, 0));
+      }
+      series = [{ name: series[0].name, values }];
+      note = joinNotes(note, `Chart shows the ${kept.length} largest of ${ranked.length} categories; the table lists more.`);
+    }
+    return { categories, series, percent: plan.percent, note };
+  }
+
+  /** A table as text cells for display: {header, rows, note}. Totals go last; long tables keep their largest rows. */
+  function tableCells(table, dimension) {
+    const fmt = (v, c) => formatValue(v, table.percent[c]);
+    let header = [table.label.length <= 40 ? table.label : "", ...table.columns];
+    let rows = table.rowLabels.map((label, r) => [label, ...table.values[r].map(fmt)]);
+
+    // single-row tables and wide, short tables read better turned on their side
+    if (table.columns.length > 1 && (table.rowLabels.length === 1 ||
+        (table.columns.length > 9 && table.columns.length > table.rowLabels.length))) {
+      header = [dimension.length <= 40 ? dimension : "", ...table.rowLabels];
+      rows = table.columns.map((name, c) => [name, ...table.values.map(row => fmt(row[c], c))]);
+    }
+    rows = [...rows.filter(r => !isTotal(r[0])), ...rows.filter(r => isTotal(r[0]))];
+
+    let note = "";
+    if (rows.length > MAX_TABLE_ROWS) {
+      const totals = rows.filter(r => isTotal(r[0]));
+      const body = rows.filter(r => !isTotal(r[0]));
+      const size = r => (header.length > 1 && isTotal(header[header.length - 1]) ? toNumber(r[r.length - 1])
+                                                                                 : r.slice(1).reduce((s, v) => s + toNumber(v), 0));
+      body.sort((a, b) => size(b) - size(a));
+      note = `Table shows the ${TRUNCATED_ROWS} largest of ${body.length} rows; the csv export has all of them.`;
+      rows = [...body.slice(0, TRUNCATED_ROWS), ...totals];
+    }
+    return { header, rows, note };
+  }
+
+  /** Splits a table into pages of at most pageRows rows (spread evenly) and pageColumns value columns. */
+  function paginate(header, rows, pageRows = 18, pageColumns = 9) {
+    const pages = [];
+    for (let start = 1; start < Math.max(header.length, 2); start += pageColumns) {
+      const cols = [0];
+      for (let c = start; c < Math.min(start + pageColumns, header.length); c++) cols.push(c);
+      const pageCount = Math.max(1, Math.ceil(rows.length / pageRows));
+      const perPage = Math.max(1, Math.ceil(rows.length / pageCount));
+      for (let r = 0; r < Math.max(rows.length, 1); r += perPage) {
+        pages.push({ header: cols.map(c => header[c]), rows: rows.slice(r, r + perPage).map(row => cols.map(c => row[c])) });
+      }
+    }
+    return pages;
+  }
+
+  function formatValue(v, percent) {
+    if (v === null || v === undefined) return "–";
+    if (percent) return (v * 100).toFixed(1) + "%";
+    if (Number.isInteger(v)) return v.toLocaleString("en-US");
+    return v.toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  }
+
+  function toNumber(text) {
+    const n = Number(String(text).replace(/[,%]/g, ""));
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  function plural(word) { return /s$/i.test(word) ? word : word.toLowerCase() + "s"; }
+  function joinNotes(...notes) { return notes.filter(Boolean).join(" "); }
+
+  return { parseCsv, interpret, prettyTitle, planChart, chartData, tableCells, paginate, formatValue, isTotal, joinNotes };
+})();
+</script>
+
+<script id="app">
+(() => {
+  const L = ReportLogic;
+  const ORGANIZATION = "Catholic Charities of East Tennessee";
+  const STORE_KEY = "ccetn-outcomes-pptx-maker:v1";
+  const KIND_NAMES = { column: "Column chart", bar: "Bar chart", pie: "Pie chart", number: "Big number", table: "Table only" };
+
+  // PowerPoint colors (hex without #)
+  // CCETN brand colors (ccetn.org and the mountain logo)
+  const C = { navy: "1D4A77", blue: "455D9E", sky: "7B9DD1", ink: "222B36", grey: "5A5D6A", light: "EEF3F9", total: "DCE6F2",
+              grid: "D9DEE3", white: "FFFFFF", gold: "FFCB05" };
+  const PALETTE = ["1D4A77", "7B9DD1", "FFCB05", "0088CB", "A3C2E3", "5A5D6A", "455D9E", "B8DAF3"];
+
+  // ------------------------------------------------------------------ state
+
+  let reports = [];   // [{id, fileName, title, sections, slides: [...], error}]
+  let nextId = 1;
+  const memory = loadMemory();
+
+  function loadMemory() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORE_KEY) || "{}");
+      return { slides: saved.slides || {}, reports: saved.reports || {}, decks: saved.decks || {} };
+    } catch (e) {
+      return { slides: {}, reports: {}, decks: {} };
+    }
+  }
+
+  let saveTimer = null;
+  function saveMemory() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      try { localStorage.setItem(STORE_KEY, JSON.stringify(memory)); } catch (e) { /* private window: nothing kept */ }
+    }, 300);
+  }
+
+  const reportKey = r => r.fileName.toLowerCase();
+  const deckKey = () => reports.filter(r => !r.error).map(reportKey).sort().join("|");
+
+  // ------------------------------------------------------------------ loading files
+
+  const $ = id => document.getElementById(id);
+  $("header-logo").src = CCETN_LOGO;
+  document.head.append(Object.assign(document.createElement("link"), { rel: "icon", type: "image/png", href: CCETN_LOGO }));
+  const drop = $("drop"), fileInput = $("file-input");
+
+  drop.addEventListener("click", () => fileInput.click());
+  drop.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInput.click(); } });
+  fileInput.addEventListener("change", () => { addFiles(fileInput.files); fileInput.value = ""; });
+  ["dragenter", "dragover"].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add("over"); }));
+  ["dragleave", "drop"].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove("over"); }));
+  drop.addEventListener("drop", e => addFiles(e.dataTransfer.files));
+  // dropping a file anywhere else on the page shouldn't open it in the browser
+  window.addEventListener("dragover", e => e.preventDefault());
+  window.addEventListener("drop", e => { e.preventDefault(); if (!drop.contains(e.target)) addFiles(e.dataTransfer.files); });
+
+  async function addFiles(fileList) {
+    const files = [...fileList];
+    for (const file of files) {
+      const existing = reports.findIndex(r => r.fileName.toLowerCase() === file.name.toLowerCase());
+      const report = await readReport(file);
+      if (existing >= 0) reports[existing] = report;   // a newer export of the same report replaces the old one
+      else reports.push(report);
+    }
+    if (files.length) render();
+  }
+
+  async function readReport(file) {
+    const base = { id: nextId++, fileName: file.name, slides: [], sections: [] };
+    if (!/\.csv$/i.test(file.name)) {
+      return { ...base, title: file.name, error: "This isn't a .csv file. Use the .csv that Outcome Tracker exports (not the .pdf)." };
+    }
+    try {
+      const text = decode(await file.arrayBuffer());
+      const parsed = L.interpret(text, file.name);
+      if (!parsed.sections.length) {
+        return { ...base, title: parsed.title, error: "No tables found. Is this a report exported from Outcome Tracker?" };
+      }
+      const saved = memory.reports[base.fileName.toLowerCase()] || {};
+      const report = { ...base, title: saved.title || parsed.title, sections: parsed.sections };
+      report.slides = makeSlides(report);
+      return report;
+    } catch (e) {
+      console.error(e);
+      return { ...base, title: file.name, error: "This file couldn't be read: " + e.message };
+    }
+  }
+
+  function decode(buffer) {
+    // Outcome Tracker exports are usually UTF-8; older ones may use the Windows encoding
+    try { return new TextDecoder("utf-8", { fatal: true }).decode(buffer).replace(/^﻿/, ""); }
+    catch (e) { return new TextDecoder("windows-1252").decode(buffer); }
+  }
+
+  function makeSlides(report) {
+    const slides = [];
+    report.sections.forEach((section, s) => {
+      section.tables.forEach((table, t) => {
+        const plan = L.planChart(table, section.dimension);
+        const key = [reportKey(report), s, section.title, t, table.label].join("|");
+        const saved = memory.slides[key] || {};
+        const title = table.label || section.title || report.title;
+        slides.push({
+          key, section, table, plan,
+          defaultTitle: title,
+          title: saved.title || title,
+          include: saved.include !== undefined ? saved.include : !plan.empty,
+          kind: plan.kinds.includes(saved.kind) ? saved.kind : plan.autoKind,
+          note: saved.note || "",
+        });
+      });
+    });
+    return slides;
+  }
+
+  function remember(report, slide) {
+    memory.slides[slide.key] = { include: slide.include, kind: slide.kind, note: slide.note,
+                                 title: slide.title !== slide.defaultTitle ? slide.title : "" };
+    saveMemory();
+  }
+
+  // ------------------------------------------------------------------ page
+
+  function render() {
+    renderReportList();
+    const usable = reports.filter(r => !r.error);
+    $("deck-step").hidden = $("slides-step").hidden = $("bar").hidden = !usable.length;
+    if (usable.length) {
+      fillDeckFields();
+      renderSlides();
+    }
+    updateCounts();
+  }
+
+  function renderReportList() {
+    const list = $("report-list");
+    list.replaceChildren();
+    reports.forEach((report, i) => {
+      const li = el("li", { className: report.error ? "error" : "" });
+      if (report.error) {
+        li.append(el("strong", { textContent: report.fileName }), el("span", { textContent: report.error }));
+      } else {
+        const title = el("input", { value: report.title, "aria-label": "Report name for " + report.fileName });
+        title.addEventListener("input", () => {
+          report.title = title.value;
+          memory.reports[reportKey(report)] = { title: report.title };
+          saveMemory();
+          renderSlides();
+        });
+        li.append(title, el("span", { className: "meta", textContent: `${report.fileName} · ${report.slides.length} table${report.slides.length === 1 ? "" : "s"}` }));
+        if (reports.length > 1) {
+          const up = iconButton("↑", "Move up", () => { swap(i, i - 1); });
+          const down = iconButton("↓", "Move down", () => { swap(i, i + 1); });
+          up.disabled = i === 0;
+          down.disabled = i === reports.length - 1;
+          li.append(up, down);
+        }
+      }
+      li.append(iconButton("Remove", "Remove " + report.fileName, () => { reports.splice(i, 1); render(); }));
+      list.append(li);
+    });
+  }
+
+  function swap(a, b) {
+    [reports[a], reports[b]] = [reports[b], reports[a]];
+    render();
+  }
+
+  function fillDeckFields() {
+    const usable = reports.filter(r => !r.error);
+    const saved = memory.decks[deckKey()] || {};
+    $("deck-title").value = saved.title || (usable.length === 1 ? usable[0].title : "Agency Outcomes");
+    $("deck-period").value = saved.period || "";
+    $("deck-subtitle").value = saved.subtitle || ORGANIZATION;
+  }
+
+  ["deck-title", "deck-period", "deck-subtitle"].forEach(id => $(id).addEventListener("input", () => {
+    memory.decks[deckKey()] = { title: $("deck-title").value, period: $("deck-period").value, subtitle: $("deck-subtitle").value };
+    saveMemory();
+    if (id === "deck-period") renderSlides();
+  }));
+
+  function renderSlides() {
+    const groups = $("slide-groups");
+    groups.replaceChildren();
+    const usable = reports.filter(r => !r.error);
+    for (const report of usable) {
+      const group = el("div", { className: "report-group" });
+      if (usable.length > 1) group.append(el("h3", { textContent: report.title }));
+      const cards = el("div", { className: "cards" });
+      report.slides.forEach(slide => cards.append(slideCard(report, slide)));
+      group.append(cards);
+      groups.append(group);
+    }
+  }
+
+  function slideCard(report, slide) {
+    const card = el("article", { className: "card" + (slide.include ? "" : " off") });
+
+    const head = el("div", { className: "card-head" });
+    const include = el("input", { type: "checkbox", checked: slide.include });
+    include.addEventListener("change", () => {
+      slide.include = include.checked;
+      card.classList.toggle("off", !slide.include);
+      remember(report, slide);
+      updateCounts();
+    });
+    const label = el("label");
+    label.append(include, "Include");
+    head.append(label);
+    if (slide.plan.empty) head.append(el("span", { className: "badge", textContent: "No data this period" }));
+    head.append(el("span", { className: "where", textContent: slide.section.title || report.title }));
+
+    const preview = el("div", { className: "preview" });
+    const drawPreview = () => preview.replaceChildren(...previewContent(report, slide));
+    drawPreview();
+
+    const controls = el("div", { className: "controls" });
+    const titleField = el("label", { className: "field" });
+    const titleInput = el("input", { value: slide.title });
+    titleInput.addEventListener("input", () => {
+      slide.title = titleInput.value || slide.defaultTitle;
+      remember(report, slide);
+      drawPreview();
+    });
+    titleField.append("Slide title", titleInput);
+
+    const kinds = el("div", { className: "kinds", role: "group" });
+    kinds.append(el("span", { textContent: "Show as" }));
+    for (const kind of slide.plan.kinds) {
+      const b = el("button", { type: "button", textContent: KIND_NAMES[kind], "aria-pressed": String(kind === slide.kind) });
+      b.addEventListener("click", () => {
+        slide.kind = kind;
+        kinds.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+        remember(report, slide);
+        drawPreview();
+      });
+      kinds.append(b);
+    }
+
+    const noteField = el("label", { className: "field" });
+    const note = el("textarea", { value: slide.note, rows: 2,
+                                  placeholder: "Optional explanation shown on the slide, e.g. what this means or why it changed" });
+    note.addEventListener("input", () => { slide.note = note.value; remember(report, slide); drawPreview(); });
+    noteField.append("Explanation", note);
+
+    controls.append(titleField, kinds, noteField);
+    card.append(head, preview, controls);
+    return card;
+  }
+
+  function previewContent(report, slide) {
+    const kicker = slide.section.title && slide.section.title !== slide.title ? slide.section.title : report.title;
+    const out = [el("div", { className: "p-kicker", textContent: kicker }),
+                 el("div", { className: "p-title", textContent: slide.title })];
+    const body = el("div", { className: "p-body" });
+    const cells = L.tableCells(slide.table, slide.section.dimension);
+    const small = cells.rows.length <= 10 && cells.header.length - 1 <= 3;
+
+    if (slide.kind === "table") {
+      body.append(miniTable(cells, 9));
+    } else if (slide.kind === "number") {
+      const data = L.chartData(slide.plan, "number");
+      const big = el("div", { className: "p-number" });
+      big.append(el("b", { textContent: L.formatValue(data.series[0].values[0], data.percent) }),
+                 el("span", { textContent: numberLabel(data) }));
+      body.append(big);
+    } else {
+      const chart = el("div", { className: "p-chart" });
+      chart.innerHTML = chartSvg(L.chartData(slide.plan, slide.kind), slide.kind);
+      body.append(chart);
+      if (small) {
+        const side = el("div", { className: "p-side" });
+        side.append(miniTable(cells, 10));
+        body.append(side);
+      }
+    }
+    out.push(body);
+    if (slide.note.trim()) out.push(el("div", { className: "p-note", textContent: slide.note }));
+    const pages = tablePagesFor(slide, cells, small);
+    out.push(el("img", { className: "p-logo", src: CCETN_LOGO, alt: "" }));
+    if (pages) out.push(el("div", { className: "p-more", textContent: `+ ${pages} table slide${pages > 1 ? "s" : ""} with all the numbers` }));
+    return out;
+  }
+
+  function tablePagesFor(slide, cells, small) {
+    if (slide.kind === "number") return 0;
+    const pages = L.paginate(cells.header, cells.rows).length;
+    if (slide.kind === "table") return pages - 1;
+    return small ? 0 : pages;
+  }
+
+  function miniTable(cells, maxRows) {
+    const table = el("table", { className: "mini" });
+    const head = el("tr");
+    cells.header.slice(0, 5).forEach(h => head.append(el("th", { textContent: h })));
+    table.append(head);
+    cells.rows.slice(0, maxRows).forEach(row => {
+      const tr = el("tr", { className: L.isTotal(row[0]) ? "total" : "" });
+      row.slice(0, 5).forEach(v => tr.append(el("td", { textContent: v })));
+      table.append(tr);
+    });
+    return table;
+  }
+
+  // simple SVG charts for the previews; the PowerPoint gets real, editable charts
+  function chartSvg(data, kind) {
+    const colors = data.series.length === 1 && kind !== "pie" ? ["#" + C.navy] : PALETTE.map(c => "#" + c);
+    const fmt = v => L.formatValue(v, data.percent);
+    const esc = s => String(s).replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
+    const cut = (s, n) => (String(s).length > n ? String(s).slice(0, n - 1) + "…" : String(s));
+    const max = Math.max(...data.series.flatMap(s => s.values), 0) || 1;
+    let svg = "";
+
+    if (kind === "pie") {
+      const values = data.series[0].values, total = values.reduce((a, b) => a + b, 0) || 1;
+      let angle = -Math.PI / 2;
+      values.forEach((v, i) => {
+        const sweep = (v / total) * Math.PI * 2, end = angle + sweep;
+        const color = colors[i % colors.length];
+        if (sweep >= Math.PI * 2 - 1e-6) {
+          svg += `<circle cx="110" cy="110" r="95" fill="${color}"/>`;
+        } else {
+          const x1 = 110 + 95 * Math.cos(angle), y1 = 110 + 95 * Math.sin(angle);
+          const x2 = 110 + 95 * Math.cos(end), y2 = 110 + 95 * Math.sin(end);
+          svg += `<path d="M110,110 L${x1},${y1} A95,95 0 ${sweep > Math.PI ? 1 : 0} 1 ${x2},${y2} Z" fill="${color}"/>`;
+        }
+        const mid = angle + sweep / 2;
+        if (sweep > 0.25) svg += `<text x="${110 + 62 * Math.cos(mid)}" y="${114 + 62 * Math.sin(mid)}" text-anchor="middle" font-size="15" font-weight="700" fill="#fff">${Math.round(v / total * 100)}%</text>`;
+        angle = end;
+      });
+      data.categories.forEach((c, i) => {
+        svg += `<rect x="230" y="${30 + i * 24}" width="12" height="12" fill="${colors[i % colors.length]}"/>` +
+               `<text x="248" y="${41 + i * 24}" font-size="13" fill="#222B36">${esc(cut(c, 22))}</text>`;
+      });
+      return `<svg viewBox="0 0 400 220" role="img" aria-label="Pie chart preview">${svg}</svg>`;
+    }
+
+    const n = data.categories.length, k = data.series.length;
+    if (kind === "bar") {
+      const left = 120, top = 6, h = 208, w = 240, band = h / n, bar = Math.min(band * 0.7 / k, 26);
+      data.categories.forEach((c, i) => {
+        svg += `<text x="${left - 6}" y="${top + band * i + band / 2 + 4}" text-anchor="end" font-size="${n > 10 ? 9 : 11}" fill="#222B36">${esc(cut(c, 20))}</text>`;
+        data.series.forEach((s, j) => {
+          const y = top + band * i + (band - bar * k) / 2 + bar * j, len = (s.values[i] / max) * w;
+          svg += `<rect x="${left}" y="${y}" width="${Math.max(len, 0)}" height="${bar}" fill="${colors[j % colors.length]}"/>`;
+          if (n * k <= 30) svg += `<text x="${left + len + 4}" y="${y + bar / 2 + 4}" font-size="10" fill="#222B36">${esc(fmt(s.values[i]))}</text>`;
+        });
+      });
+      svg += `<line x1="${left}" y1="${top}" x2="${left}" y2="${top + h}" stroke="#D9DEE3"/>`;
+    } else {
+      const left = 10, base = 190, h = 170, w = 380, band = w / n, bar = Math.min(band * 0.7 / k, 60);
+      data.categories.forEach((c, i) => {
+        svg += `<text x="${left + band * i + band / 2}" y="${base + 16}" text-anchor="middle" font-size="${n > 6 ? 9 : 11}" fill="#222B36">${esc(cut(c, Math.max(6, Math.floor(band / 6))))}</text>`;
+        data.series.forEach((s, j) => {
+          const x = left + band * i + (band - bar * k) / 2 + bar * j, len = (s.values[i] / max) * h;
+          svg += `<rect x="${x}" y="${base - len}" width="${bar}" height="${Math.max(len, 0)}" fill="${colors[j % colors.length]}"/>`;
+          if (n * k <= 30) svg += `<text x="${x + bar / 2}" y="${base - len - 4}" text-anchor="middle" font-size="10" fill="#222B36">${esc(fmt(s.values[i]))}</text>`;
+        });
+      });
+      svg += `<line x1="${left}" y1="${base}" x2="${left + w}" y2="${base}" stroke="#D9DEE3"/>`;
+    }
+    return `<svg viewBox="0 0 400 220" role="img" aria-label="Chart preview">${svg}</svg>`;
+  }
+
+  function numberLabel(data) {
+    const label = data.categories[0];
+    return L.isTotal(label) ? data.series[0].name : label;
+  }
+
+  function updateCounts() {
+    const all = reports.flatMap(r => (r.error ? [] : r.slides));
+    const chosen = all.filter(s => s.include).length;
+    $("slide-count").textContent = `${chosen} of ${all.length} tables included`;
+    $("bar-summary").textContent = chosen ? `${chosen} table${chosen === 1 ? "" : "s"} will go in the PowerPoint` : "Tick at least one table to make a PowerPoint";
+    $("download").disabled = !chosen;
+  }
+
+  $("select-all").addEventListener("click", () => setAll(true));
+  $("select-none").addEventListener("click", () => setAll(false));
+  function setAll(include) {
+    for (const report of reports) for (const slide of report.slides) { slide.include = include; remember(report, slide); }
+    renderSlides();
+    updateCounts();
+  }
+
+  $("forget").addEventListener("click", () => {
+    if (!confirm("Forget all saved titles, chart choices and explanations in this browser?")) return;
+    memory.slides = {}; memory.reports = {}; memory.decks = {};
+    try { localStorage.removeItem(STORE_KEY); } catch (e) { /* nothing saved */ }
+    reports = reports.map(r => (r.error ? r : { ...r, title: L.interpret("", r.fileName).title, slides: makeSlides(r) }));
+    render();
+    toast("Saved edits forgotten.");
+  });
+
+  let toastTimer = null;
+  function toast(message, bad) {
+    const t = $("toast");
+    t.textContent = message;
+    t.className = "toast" + (bad ? " bad" : "");
+    t.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { t.hidden = true; }, 6000);
+  }
+
+  function el(tag, props = {}) {
+    const node = document.createElement(tag);
+    for (const [k, v] of Object.entries(props)) {
+      if (k in node && !k.includes("-")) node[k] = v; else node.setAttribute(k, v);
+    }
+    return node;
+  }
+
+  function iconButton(text, label, onClick) {
+    const b = el("button", { type: "button", className: "icon-btn", textContent: text, title: label, "aria-label": label });
+    b.addEventListener("click", onClick);
+    return b;
+  }
+
+  // ------------------------------------------------------------------ PowerPoint
+
+  $("download").addEventListener("click", async () => {
+    if (typeof PptxGenJS === "undefined") {
+      toast("The PowerPoint library didn't load. Check the internet connection and reload this page.", true);
+      return;
+    }
+    const button = $("download");
+    button.disabled = true;
+    button.textContent = "Making PowerPoint…";
+    try {
+      const fileName = await buildPowerPoint();
+      toast(`Saved "${fileName}" to your Downloads folder.`);
+    } catch (e) {
+      console.error(e);
+      toast("Something went wrong making the PowerPoint: " + e.message, true);
+    } finally {
+      button.textContent = "Download PowerPoint";
+      updateCounts();
+    }
+  });
+
+  const W = 13.333, H = 7.5, M = 0.5, FONT = "Calibri";
+
+  async function buildPowerPoint() {
+    const deck = { title: $("deck-title").value.trim() || "Outcomes", period: $("deck-period").value.trim(),
+                   subtitle: $("deck-subtitle").value.trim() };
+    const pptx = new PptxGenJS();
+    pptx.layout = "LAYOUT_WIDE";
+    pptx.author = ORGANIZATION;
+    pptx.company = ORGANIZATION;
+    pptx.title = deck.title;
+
+    titleSlide(pptx, deck);
+    const chosen = reports.filter(r => !r.error && r.slides.some(s => s.include));
+    for (const report of chosen) {
+      if (chosen.length > 1) dividerSlide(pptx, report.title);
+      for (const slide of report.slides.filter(s => s.include)) tableSlides(pptx, deck, report, slide);
+    }
+    const fileName = safeFileName(deck.title + (deck.period ? " - " + deck.period : "")) + ".pptx";
+    await pptx.writeFile({ fileName });
+    return fileName;
+  }
+
+  function safeFileName(name) {
+    return name.replace(/[\\/:*?"<>|]+/g, "-").replace(/\s+/g, " ").trim() || "Outcomes";
+  }
+
+  function titleSlide(pptx, deck) {
+    const s = pptx.addSlide();
+    s.background = { color: C.white };
+    s.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 0.35, h: H, fill: { color: C.navy }, line: { color: C.navy } });
+    s.addShape(pptx.ShapeType.rect, { x: 0.35, y: 0, w: 0.08, h: H, fill: { color: C.sky }, line: { color: C.sky } });
+    const logoW = 3.2;
+    s.addImage({ data: CCETN_LOGO, x: W - 1.0 - logoW, y: (H - logoW / CCETN_LOGO_RATIO) / 2, w: logoW, h: logoW / CCETN_LOGO_RATIO });
+    const x = 1.2, w = W - 2.4 - logoW - 0.4;
+    s.addText(deck.title, { x, y: 2.2, w, h: 1.6, fontFace: FONT, fontSize: 40, bold: true, color: C.ink, valign: "bottom", margin: 0, fit: "shrink" });
+    if (deck.subtitle) s.addText(deck.subtitle, { x, y: 3.95, w, h: 0.6, fontFace: FONT, fontSize: 22, color: C.navy, margin: 0 });
+    const made = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+    s.addText((deck.period ? deck.period + "  ·  " : "") + "Made " + made + " from Outcome Tracker reports",
+              { x, y: 4.6, w, h: 0.5, fontFace: FONT, fontSize: 14, color: C.grey, margin: 0 });
+  }
+
+  function dividerSlide(pptx, title) {
+    const s = pptx.addSlide();
+    s.background = { color: C.navy };
+    // the logo needs a light background, so it sits on a white circle
+    const circle = 3.4, logoW = 2.5;
+    s.addShape(pptx.ShapeType.ellipse, { x: W - 1.0 - circle, y: (H - circle) / 2, w: circle, h: circle,
+                                         fill: { color: C.white }, line: { color: C.sky, width: 4 } });
+    s.addImage({ data: CCETN_LOGO, x: W - 1.0 - circle + (circle - logoW) / 2, y: (H - logoW / CCETN_LOGO_RATIO) / 2,
+                 w: logoW, h: logoW / CCETN_LOGO_RATIO });
+    const w = W - 2.4 - circle - 0.4;
+    s.addText("REPORT", { x: 1.2, y: 2.6, w, h: 0.5, fontFace: FONT, fontSize: 14, bold: true, color: C.gold, margin: 0 });
+    s.addText(title, { x: 1.2, y: 3.1, w, h: 1.4, fontFace: FONT, fontSize: 36, bold: true, color: C.white, valign: "top", margin: 0 });
+  }
+
+  function tableSlides(pptx, deck, report, slide) {
+    const { section, table, plan, kind } = slide;
+    const kicker = section.title && section.title !== slide.title ? section.title : report.title;
+    const dimension = section.dimension;
+    const subtitle = dimension.split(/\s+/).length >= 6 && dimension !== slide.title ? dimension : "";
+    const source = "Source: Outcome Tracker, " + report.title + (deck.period ? "  ·  " + deck.period : "");
+    const cells = L.tableCells(table, dimension);
+    let pages = L.paginate(cells.header, cells.rows);
+    const small = cells.rows.length <= 10 && cells.header.length - 1 <= 3;
+    const data = kind === "table" ? null : L.chartData(plan, kind);
+    const autoNote = L.joinNotes(data && data.note, kind === "table" || !small ? cells.note : "",
+                                 plan.empty ? "No data was reported for this period." : "");
+
+    const frame = contentSlide(pptx, { kicker, title: slide.title, subtitle, explanation: slide.note, note: autoNote, source });
+    const { s, top, bottom } = frame;
+    const fullW = W - 2 * M;
+
+    if (kind === "table") {
+      drawTable(s, pages[0], M, top, fullW, bottom - top);
+      pages = pages.slice(1);
+    } else if (kind === "number") {
+      s.addText(L.formatValue(data.series[0].values[0], data.percent),
+                { x: M, y: top + (bottom - top) * 0.15, w: fullW, h: 1.7, fontFace: FONT, fontSize: 88, bold: true, color: C.navy, align: "center", valign: "bottom", margin: 0 });
+      s.addText(numberLabel(data), { x: M, y: top + (bottom - top) * 0.15 + 1.8, w: fullW, h: 0.7, fontFace: FONT, fontSize: 22, color: C.grey, align: "center", margin: 0 });
+      pages = [];
+    } else if (small) {
+      const chartW = fullW * 0.6;
+      drawChart(pptx, s, kind, data, M, top, chartW, bottom - top);
+      drawTable(s, pages[0], M + chartW + 0.4, top + 0.3, fullW - chartW - 0.4, bottom - top - 0.3);
+      pages = [];
+    } else {
+      drawChart(pptx, s, kind, data, M, top, fullW, bottom - top);
+    }
+
+    // the rest of the numbers go on their own table slides
+    pages.forEach((page, i) => {
+      const title = slide.title + (pages.length === 1 ? " (table)" : ` (table ${i + 1} of ${pages.length})`);
+      const f = contentSlide(pptx, { kicker, title, subtitle, explanation: "", note: cells.note, source });
+      drawTable(f.s, page, M, f.top, fullW, f.bottom - f.top);
+    });
+  }
+
+  /** A slide with the kicker, title, optional subtitle, explanation box, note and footer.
+   *  Returns the slide and the free space between top and bottom (inches). */
+  function contentSlide(pptx, { kicker, title, subtitle, explanation, note, source }) {
+    const s = pptx.addSlide();
+    s.background = { color: C.white };
+    const w = W - 2 * M;
+    s.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: W, h: 0.12, fill: { color: C.navy }, line: { color: C.navy } });
+    s.addText(kicker.toUpperCase(), { x: M, y: 0.28, w, h: 0.32, fontFace: FONT, fontSize: 12, bold: true, color: C.blue, margin: 0 });
+
+    const size = title.length <= 50 ? 28 : title.length <= 75 ? 24 : 20;
+    const titleH = title.length <= 75 ? 0.6 : 0.9;
+    s.addText(title, { x: M, y: 0.6, w, h: titleH, fontFace: FONT, fontSize: size, bold: true, color: C.ink, valign: "top", margin: 0, fit: "shrink" });
+    let top = 0.6 + titleH + 0.1;
+    if (subtitle) {
+      s.addText(subtitle, { x: M, y: top, w, h: 0.4, fontFace: FONT, fontSize: 14, italic: true, color: C.grey, margin: 0 });
+      top += 0.45;
+    }
+
+    let bottom = H - 0.95;
+    if (note) {
+      s.addText(note, { x: M, y: H - 0.9, w, h: 0.35, fontFace: FONT, fontSize: 11, italic: true, color: C.grey, margin: 0 });
+      bottom = H - 1.3;
+    }
+    if (explanation && explanation.trim()) {
+      const lines = Math.min(4, Math.max(1, Math.ceil(explanation.length / 150) + (explanation.match(/\n/g) || []).length));
+      const boxH = 0.3 + lines * 0.27;
+      s.addText(explanation.trim(), { x: M, y: bottom - boxH, w, h: boxH, fontFace: FONT, fontSize: 15, color: C.ink,
+                                      fill: { color: C.light }, margin: [6, 12, 6, 12], valign: "middle", fit: "shrink" });
+      bottom -= boxH + 0.2;
+    }
+    s.addText(source, { x: M, y: H - 0.5, w: w * 0.8, h: 0.3, fontFace: FONT, fontSize: 10, color: C.grey, margin: 0 });
+    const logoH = 0.42;
+    s.addImage({ data: CCETN_LOGO, x: W - M - logoH * CCETN_LOGO_RATIO, y: H - 0.6, w: logoH * CCETN_LOGO_RATIO, h: logoH });
+    s.slideNumber = { x: W - M - logoH * CCETN_LOGO_RATIO - 1.1, y: H - 0.5, w: 1, h: 0.3, fontFace: FONT, fontSize: 10,
+                      color: C.grey, align: "right" };
+    return { s, top: top + 0.15, bottom };
+  }
+
+  function drawChart(pptx, s, kind, data, x, y, w, h) {
+    const fmt = data.percent ? "0%" : "#,##0";
+    const chartData = data.series.map(se => ({ name: se.name, labels: data.categories, values: se.values }));
+    if (kind === "pie") {
+      s.addChart(pptx.ChartType.pie, chartData, {
+        x, y, w, h, chartColors: PALETTE, showTitle: false,
+        showLegend: true, legendPos: "r", legendFontSize: 14, legendFontFace: FONT, legendColor: C.ink,
+        showPercent: true, showValue: false, showLabel: false, dataLabelFormatCode: "0%",
+        dataLabelPosition: "outEnd", dataLabelFontSize: 16, dataLabelFontBold: true, dataLabelColor: C.ink, dataLabelFontFace: FONT,
+      });
+      return;
+    }
+    const single = data.series.length === 1;
+    const labels = data.categories.length * data.series.length <= 30;
+    const horizontal = kind === "bar";
+    const max = Math.max(...data.series.flatMap(se => se.values), 0);
+    s.addChart(pptx.ChartType.bar, chartData, {
+      x, y, w, h, barDir: horizontal ? "bar" : "col", barGrouping: "clustered", barGapWidthPct: single ? 60 : 100,
+      chartColors: single ? [C.navy] : PALETTE, showTitle: false,
+      showLegend: !single, legendPos: "b", legendFontSize: 12, legendFontFace: FONT,
+      showValue: labels, dataLabelPosition: "outEnd", dataLabelFormatCode: fmt, dataLabelFontSize: single ? 12 : 11,
+      dataLabelColor: C.ink, dataLabelFontFace: FONT,
+      catAxisLabelFontSize: data.categories.length > 8 ? 11 : 12, catAxisLabelColor: C.ink, catAxisLabelFontFace: FONT,
+      catAxisLineShow: true, catAxisLineColor: C.grid, catGridLine: { style: "none" },
+      catAxisOrientation: horizontal ? "maxMin" : "minMax",     // keep the first category at the top of bar charts
+      valAxisHidden: single && labels, valAxisLineShow: false, valAxisLabelFontSize: 10, valAxisLabelColor: C.grey,
+      valAxisLabelFormatCode: fmt, valAxisMinVal: 0, ...(data.percent ? { valAxisMaxVal: Math.min(1, max * 1.25) } : {}),
+      valGridLine: single && labels ? { style: "none" } : { color: C.grid, size: 0.75 },
+    });
+  }
+
+  function drawTable(s, page, x, y, w, maxH) {
+    const { header, rows } = page;
+    const nRows = rows.length + 1, nCols = header.length;
+    const fontSize = nRows <= 8 && nCols <= 4 ? 14 : nRows <= 12 && nCols <= 7 ? 12 : 10;
+    const labelShare = nCols <= 2 ? 0.5 : nCols <= 4 ? 0.4 : nCols <= 7 ? 0.28 : 0.2;
+    const labelW = w * labelShare, valueW = (w - labelW) / Math.max(nCols - 1, 1);
+
+    // long column names wrap, so the header row may need several lines
+    const charsPerLine = Math.max(1, Math.floor(valueW * 72 / (fontSize * 0.55)));
+    const headerLines = Math.max(1, ...header.slice(1).map(h => Math.ceil(String(h).length / charsPerLine)));
+    let rowH = Math.min(0.5, maxH / (nRows + headerLines - 1));
+    const headerH = Math.max(rowH, (fontSize * 1.25 * Math.min(headerLines, 5)) / 72 + 0.08);
+    rowH = Math.min(rowH, (maxH - headerH) / Math.max(nRows - 1, 1));
+
+    const body = [header, ...rows].map((cells, r) => {
+      const isHeader = r === 0, isTotalRow = !isHeader && L.isTotal(cells[0]);
+      const fill = isHeader ? C.navy : isTotalRow ? C.total : r % 2 === 0 ? C.light : C.white;
+      return cells.map((text, c) => ({
+        text: String(text),
+        options: { bold: isHeader || isTotalRow, color: isHeader ? C.white : C.ink, fill: { color: fill },
+                   align: c === 0 ? "left" : isHeader ? "center" : "right", valign: "middle" },
+      }));
+    });
+    s.addTable(body, {
+      x, y, w, colW: [labelW, ...Array(nCols - 1).fill(valueW)], rowH: [headerH, ...Array(nRows - 1).fill(rowH)],
+      fontFace: FONT, fontSize, margin: [2, 6, 2, 6], border: { type: "solid", pt: 0.75, color: C.white },
+    });
+  }
+})();
+</script>
+</body>
+</html>
