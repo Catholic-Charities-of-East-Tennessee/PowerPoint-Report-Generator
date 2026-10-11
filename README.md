@@ -1,11 +1,11 @@
-# Outcomes PowerPoint Maker
+# Outcome Tracker PowerPoint Maker
 Turns Outcome Tracker reports into PowerPoints: one for a single program, or one agency PowerPoint that combines several programs. Every table in a report becomes a slide with a chart and the numbers behind it.
 
-It's a single web page, **Outcomes PowerPoint Maker.html**. There's nothing to install, and report data never leaves your computer.
+It's a single web page, **Outcome Tracker PowerPoint Maker.html**. There's nothing to install, and report data never leaves your computer.
 
 ## Making a PowerPoint
 1. In Outcome Tracker, open the report, run it for the dates you want, and export it. You get a .pdf and a .csv; you need the **.csv**.
-2. Open **Outcomes PowerPoint Maker.html** in Chrome or Edge. From SharePoint, download it first or open it from your synced OneDrive folder.
+2. Open **Outcome Tracker PowerPoint Maker.html** in Chrome or Edge. From SharePoint, download it first or open it from your synced OneDrive folder.
 3. Drag the .csv onto the page. For an agency PowerPoint, drag in several reports and use the arrows to put them in order.
 4. Fill in the title and reporting period.
 5. Go through the slides:

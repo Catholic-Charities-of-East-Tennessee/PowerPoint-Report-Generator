@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project overview
 
-`Outcomes PowerPoint Maker.html` is a single, self-contained web page for Catholic Charities of East Tennessee. Staff drop Outcome Tracker (VistaShare) report exports (.csv) on it, choose and adjust slides, and download a PowerPoint. The COO wanted one deck per program (CES and Samaritan Place first) plus agency decks combining programs. He also wanted to add explanations to the charts and to refresh the decks easily. The decks are kept on SharePoint, and there's no server.
+`Outcome Tracker PowerPoint Maker.html` is a single, self-contained web page for Catholic Charities of East Tennessee. Staff drop Outcome Tracker (VistaShare) report exports (.csv) on it, choose and adjust slides, and download a PowerPoint. The COO wanted one deck per program (CES and Samaritan Place first) plus agency decks combining programs. He also wanted to add explanations to the charts and to refresh the decks easily. The decks are kept on SharePoint, and there's no server.
 
 The users are non-technical, so these constraints are deliberate:
 - No install and no build step: one HTML file that opens from SharePoint or OneDrive.
